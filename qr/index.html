@@ -1,0 +1,111 @@
+---
+layout: post
+title: 'QR Code reader and generator'
+title_app: 'qr'
+description: 'Scan and generate QR with pure JS'
+---
+
+<p>
+  Read and generate QR code patterns using new paulmillr-qr.js library. Available on
+  <a href="https://github.com/paulmillr/qr" target="_blank">GitHub</a> and
+  <a href="https://www.npmjs.com/package/@paulmillr/qr" target="_blank">NPM</a>.
+</p>
+
+<h3>QR scan (camera)</h3>
+
+<p>
+  Click start and put some QR code in front of camera for decoding. See the decoding log and decoded
+  QR below.
+</p>
+
+<div class="camera-start-container">
+  <button class="start-btn" id="startBtn">Start camera</button>
+  <span class="fps">
+    FPS:
+    <span id="fps-counter"></span>
+  </span>
+</div>
+
+<div class="controls" id="controls">
+  <span class="controls-field">
+    <input type="checkbox" id="isDrawBitmap" name="isDrawBitmap" checked />
+    <label for="isDrawBitmap">Computer vision mode</label>
+  </span>
+  <span class="controls-field">
+    <input type="checkbox" id="isCropToSquare" name="isCropToSquare" checked />
+    <label for="isCropToSquare">Crop to square</label>
+  </span>
+  <span class="controls-field">
+    <input type="checkbox" id="isDrawQr" name="isDrawQr" checked />
+    <label for="isDrawQr">Draw decoded</label>
+  </span>
+  <span class="controls-field">
+    <input type="checkbox" id="isLogDecoded" name="isLogDecoded" />
+    <label for="isLogDecoded">Log decoded</label>
+  </span>
+  <span class="controls-field">
+    <input type="checkbox" id="isFullVideo" name="isFullVideo" />
+    <label for="isFullVideo">High-res</label>
+  </span>
+</div>
+
+<hr />
+
+<div class="results">
+  <div id="results-container" class="results-col">
+    <video id="qr-video" autoplay=""></video>
+    <canvas id="bitmap"></canvas>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <div class="results-col" id="result">
+    <div class="results-qr">
+      <canvas id="resultQr"></canvas>
+      <div class="decoded-text">
+        <b id="resultTxtLabel">Decoded:</b>
+        <i id="resultTxt"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="log"></div>
+
+<h3>QR scan (image)</h3>
+<p>Select image with QR code for decoding</p>
+<p>
+  <input type="file" id="qr-decode-image" accept="image/*" />
+  <label for="qr-decode-image">Image <small>(jpg, png...)</small></label>
+</p>
+<span class="controls-field">
+  <input type="checkbox" id="qr-decode-debug" name="qr-decode-debug" />
+  <label for="qr-decode-debug">Debug</label>
+</span>
+<p>
+  <input type="submit" id="qr-decode-image-clear" value="Clear result" />
+</p>
+<div id="qr-decode-image-result"></div>
+
+<hr />
+
+<h3>QR generator</h3>
+<div class="input-field">
+  <label class="input-label" for="input-encode">
+    <strong>Text or URL to encode into QR</strong>
+  </label>
+  <input
+    class="text-input"
+    id="input-encode"
+    type="text"
+    placeholder="Hello world!"
+    value="Hello world!"
+  />
+</div>
+
+<div class="encode">
+  <img id="encResultQr" src="" alt="encoded qr" />
+</div>
+
+<script src="./paulmillr-qr.js"></script>
+<script src="./qr-web-demo.js"></script>
+<link rel="stylesheet" href="qr-web-demo.css" />
