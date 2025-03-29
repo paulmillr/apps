@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>nostr.spa - privacy-oriented nostr web client</title>
+    <meta name="description" content="Privacy-oriented nostr web client" />
+    <link rel="manifest" href="./app.webmanifest" />
+    <script type="module" crossorigin src="./assets/index.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index.css">
+  </head>
+  <body>
+    <div id="app">
+      <noscript>
+        <div class="noscript">
+          <p>This demo requires JavaScript to function properly.</p>
+          <p>Please enable JavaScript in your browser and reload the page.</p>
+        </div>
+      </noscript>
+    </div>
+  </body>
+</html>
+
+<style>
+  .noscript {
+    text-align: center;
+  }
+  .noscript p {
+    margin: 0.5rem 0;
+  }
+</style>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('serviceworker.js');
+  }
+</script>
