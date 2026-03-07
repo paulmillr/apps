@@ -1,4 +1,4 @@
-const writeQR = qr.encode;
+const writeQR = qr.encodeQR;
 const { frontalCamera, QRCanvas, frameLoop, getSize } = qr.dom;
 
 let IS_STARTED_VIDEO = false;
