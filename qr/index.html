@@ -19,12 +19,12 @@
       </header>
 
       <nav class="tabs" aria-label="Demo sections">
-        <button class="tab active" type="button" data-tab="camera">Camera</button>
-        <button class="tab" type="button" data-tab="image">Image</button>
-        <button class="tab" type="button" data-tab="generate">Generate</button>
+        <button class="tab active" type="button" data-tab="generate">Generate</button>
+        <button class="tab" type="button" data-tab="camera">Decode</button>
+        <button class="tab" type="button" data-tab="image">Decode image</button>
       </nav>
 
-      <section class="panel active" id="panel-camera">
+      <section class="panel" id="panel-camera">
         <div class="results">
           <div id="results-container" class="results-col">
             <div class="viewfinder" id="viewfinder">
@@ -225,7 +225,7 @@
         <div id="qr-decode-image-result"></div>
       </section>
 
-      <section class="panel" id="panel-generate">
+      <section class="panel active" id="panel-generate">
         <div class="input-field">
           <label class="input-label" for="input-encode">Text or URL to encode into QR</label>
           <input
@@ -239,9 +239,10 @@
         <div class="gen-options">
           <nav class="style-picker" id="style-picker" aria-label="QR style">
             <button class="style-btn" type="button" data-style="classic">Classic</button>
-            <button class="style-btn active" type="button" data-style="I">I · Dots</button>
-            <button class="style-btn" type="button" data-style="II">II · Lines</button>
-            <button class="style-btn" type="button" data-style="III">III · Halftone</button>
+            <button class="style-btn" type="button" data-style="I">Dots</button>
+            <button class="style-btn active" type="button" data-style="II">Lines</button>
+            <button class="style-btn" type="button" data-style="III">Tiles</button>
+            <button class="style-btn" type="button" data-style="IV">Halftone</button>
           </nav>
           <span class="controls-field">
             <label for="ecc-select">Error correction</label>
@@ -258,24 +259,27 @@
           </span>
         </div>
         <div class="encode">
+          <figure class="artwork-preview" id="halftone-preview" hidden>
+            <img id="halftone-preview-image" src="./nerv.png" alt="NERV artwork used in the halftone QR code" />
+            <figcaption>Halftone artwork</figcaption>
+          </figure>
           <div class="qr-card">
             <img id="encResultQr" src="" alt="encoded qr" hidden />
-            <div id="encResultSvg" hidden></div>
+            <img id="encResultSvg" alt="Generated QR code" hidden />
           </div>
         </div>
         <div class="gen-actions">
-          <span id="scan-check" class="scan-check" hidden></span>
           <button class="btn" type="button" id="download-svg">Download SVG</button>
           <button class="btn" type="button" id="download-png">Download PNG</button>
+        </div>
+        <div class="gen-actions">
+          <span id="scan-check" class="scan-check" hidden></span>
         </div>
       </section>
 
       <footer class="site-footer">
         <span><a href="https://paulmillr.com" target="_blank">paulmillr.com</a></span>
-        <span>
-          <a class="normal-only" href="?debug=1">Diagnostics</a>
-          <a class="debug-only" href="./">Exit diagnostics</a>
-        </span>
+        <button id="diagnostics-toggle" type="button" aria-pressed="false">Diagnostics</button>
       </footer>
 
       <dialog id="frame-format-dialog">
@@ -330,10 +334,13 @@
           current: 'current',
         };
 
-        // ?debug=1 reveals the diagnostics UI (controls, stats, capture, log); the
-        // plain page shows only scan/generate. Everything stays wired either way.
-        if (new URLSearchParams(location.search).get('debug') === '1')
-          document.body.classList.add('debug');
+        // Toggle diagnostics in place so inputs and active media stay intact.
+        const diagnosticsToggle = document.querySelector('#diagnostics-toggle');
+        diagnosticsToggle.addEventListener('click', () => {
+          const enabled = document.body.classList.toggle('debug');
+          diagnosticsToggle.setAttribute('aria-pressed', String(enabled));
+          diagnosticsToggle.textContent = enabled ? 'Exit diagnostics' : 'Diagnostics';
+        });
 
         let IS_STARTED_VIDEO = false;
 
@@ -1448,22 +1455,24 @@
             } else appendWithLabel(`QR not found! (${elapsed})`);
           });
 
-          // Encoding: the library's classic GIF plus three parametric SVG
-          // styles rebuilt from scratch after qrbtf.com looks — I (dots), II
-          // (lines), III (halftone) — driven by the raw module matrix.
+          // Encoding: the library's classic GIF plus four SVG styles driven
+          // by the raw module matrix: dots, lines, tiles, and halftone.
           const encSvg = document.querySelector('#encResultSvg');
           const stylePicker = document.querySelector('#style-picker');
           const eccSelect = document.querySelector('#ecc-select');
           const halftoneField = document.querySelector('#halftone-field');
           const halftoneFile = document.querySelector('#halftone-image');
+          const halftonePreview = document.querySelector('#halftone-preview');
+          const halftonePreviewImage = document.querySelector('#halftone-preview-image');
           const scanCheck = document.querySelector('#scan-check');
           const downloadSvgBtn = document.querySelector('#download-svg');
           const downloadPngBtn = document.querySelector('#download-png');
           const QR_DARK = '#1a1d24';
           const QR_ACCENT = '#2e6be6';
-          let qrStyle = 'I';
+          let qrStyle = 'II';
           let eccTouched = false;
-          let artwork; // halftone source image chosen by the user
+          // main runs after window.load, so the default artwork is already loaded.
+          let artwork = halftonePreviewImage.naturalWidth ? halftonePreviewImage : undefined;
           let currentSvg = ''; // markup of the visible styled QR ('' for classic)
 
           const qrGifDataUrl = (text) => {
@@ -1553,7 +1562,28 @@
             parts.push('</svg>');
             return parts.join('');
           };
-          // Style III: every module splits into a 3x3 halftone block. The center cell
+          // Style III: separated rounded tiles and matching framed finders.
+          const renderTiles = (m) => {
+            const n = m.length;
+            const parts = [svgOpen(n + 8)];
+            for (let y = 0; y < n; y++)
+              for (let x = 0; x < n; x++)
+                if (m[y][x] && !inFinder(n, x, y))
+                  parts.push(
+                    `<rect x="${x + 4.08}" y="${y + 4.08}" width="0.84" height="0.84"` +
+                      ` rx="0.16" fill="${QR_DARK}"/>`
+                  );
+            for (const [fx, fy] of finderOrigins(n))
+              parts.push(
+                `<rect x="${fx + 4.5}" y="${fy + 4.5}" width="6" height="6" rx="1"` +
+                  ` fill="none" stroke="${QR_ACCENT}" stroke-width="1"/>`,
+                `<rect x="${fx + 6}" y="${fy + 6}" width="3" height="3" rx="0.5"` +
+                  ` fill="${QR_ACCENT}"/>`
+              );
+            parts.push('</svg>');
+            return parts.join('');
+          };
+          // Style IV: every module splits into a 3x3 halftone block. The center cell
           // always keeps the module's value and function patterns stay solid,
           // so arbitrary artwork can fill the rest without hurting decoding.
           const BAYER = [
@@ -1583,6 +1613,8 @@
               const ctx = c.getContext && c.getContext('2d');
               if (ctx) {
                 c.width = c.height = N;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, N, N);
                 const s = Math.min(artwork.naturalWidth, artwork.naturalHeight);
                 ctx.drawImage(
                   artwork,
@@ -1645,6 +1677,7 @@
             if (!m) return;
             if (qrStyle === 'I') return renderDots(m);
             if (qrStyle === 'II') return renderLines(m);
+            if (qrStyle === 'III') return renderTiles(m);
             return renderHalftone(m);
           };
           // Scan check: rasterize whatever is displayed and feed it back to
@@ -1699,7 +1732,7 @@
               const svg = buildStyledSvg(text);
               if (svg === undefined) return;
               currentSvg = svg;
-              encSvg.innerHTML = svg;
+              encSvg.src = rasterSource();
               encSvg.hidden = false;
               imgEncodeQr.hidden = true;
             }
@@ -1718,10 +1751,11 @@
               qrStyle = btn.dataset.style;
               for (const other of stylePicker.querySelectorAll('.style-btn'))
                 other.classList.toggle('active', other === btn);
-              halftoneField.hidden = qrStyle !== 'III';
+              halftoneField.hidden = qrStyle !== 'IV';
+              halftonePreview.hidden = qrStyle !== 'IV';
               // Halftone gives real estate away to the artwork; follow qrbtf
               // and raise ECC until the user picks a level themselves.
-              if (!eccTouched) eccSelect.value = qrStyle === 'III' ? 'high' : 'medium';
+              if (!eccTouched) eccSelect.value = qrStyle === 'IV' ? 'high' : 'medium';
               renderQrSafe();
             });
           eccSelect.addEventListener('change', () => {
@@ -1731,6 +1765,8 @@
           halftoneFile.addEventListener('change', async () => {
             try {
               artwork = await imageFromUrl(await readFileInput(halftoneFile));
+              halftonePreviewImage.src = artwork.src;
+              halftonePreviewImage.alt = 'Selected artwork used in the halftone QR code';
             } catch (e) {
               return;
             }
@@ -1838,13 +1874,8 @@
           font-size: 14px;
         }
 
-        /* The diagnostics UI exists in every page load (so scripted flows keep
-   working) but only ?debug=1 reveals it. */
+        /* Diagnostics stay wired while the toggle controls their visibility. */
         body:not(.debug) .debug-only {
-          display: none !important;
-        }
-
-        body.debug .normal-only {
           display: none !important;
         }
 
@@ -2002,7 +2033,30 @@
 
         .encode {
           display: flex;
+          flex-wrap: wrap;
+          align-items: center;
           justify-content: center;
+          gap: 20px;
+        }
+
+        .artwork-preview {
+          width: min(200px, 100%);
+          margin: 0;
+          text-align: center;
+        }
+
+        .artwork-preview img {
+          display: block;
+          width: 100%;
+          height: auto;
+          background: #fff;
+          border-radius: 12px;
+        }
+
+        .artwork-preview figcaption {
+          margin-top: 8px;
+          color: var(--muted);
+          font-size: 14px;
         }
 
         /* .controls-field et al set their own display; hidden must still win. */
@@ -2061,7 +2115,7 @@
           border-radius: 14px;
         }
 
-        .qr-card svg,
+        #encResultSvg,
         #encResultQr {
           display: block;
           width: 100%;
@@ -2542,6 +2596,16 @@
           border-top: 1px solid var(--border);
           font-size: 13px;
           color: var(--muted);
+        }
+
+        #diagnostics-toggle {
+          padding: 0;
+          border: 0;
+          background: none;
+          color: var(--accent);
+          font: inherit;
+          text-decoration: underline;
+          cursor: pointer;
         }
 
         .qr-error {
