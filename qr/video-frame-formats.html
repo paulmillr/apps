@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>QR VideoFrame format self-test</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 1rem;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #999;
+        padding: 0.35rem;
+        text-align: left;
+      }
+      .pass {
+        color: green;
+      }
+      .fallback,
+      .unsupported {
+        color: #986700;
+      }
+      .fail {
+        color: red;
+      }
+      #agent {
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>VideoFrame format self-test</h1>
+    <p id="summary">Running…</p>
+    <p>
+      Unsupported means the browser did not preserve the constructed source format. Fallback pass
+      means the requested conversion was unavailable, but the production native fallback remained
+      exact and decoded successfully.
+    </p>
+    <p id="agent"></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Path</th>
+          <th>Requested</th>
+          <th>Browser source</th>
+          <th>Scanner input</th>
+          <th>Luma differences</th>
+          <th>Decoded</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody id="results"></tbody>
+    </table>
+    <script src="./qr.min.js"></script>
+    <script>
+      (async () => {
+        const formats = [
+          'I420',
+          'I420P10',
+          'I420P12',
+          'I420A',
+          'I422',
+          'I444',
+          'NV12',
+          'RGBA',
+          'RGBX',
+          'BGRA',
+          'BGRX',
+        ];
+        const packed = ['RGBA', 'RGBX', 'BGRA', 'BGRX'];
+        const payload = 'VIDEOFRAME FORMAT';
+        const scale = 4;
+        const matrix = qr.encodeQR(payload, 'raw', {
+          border: 4,
+          ecc: 'low',
+          mask: 0,
+          version: 2,
+        });
+        const height = matrix.length * scale;
+        const width = height + 20;
+        const cropX = 10;
+        const luma = new Uint8Array(width * height).fill(255);
+        const expected = new Uint8Array(height * height);
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < height; x++) {
+            const value = matrix[(y / scale) | 0][(x / scale) | 0] ? 0 : 255;
+            luma[y * width + cropX + x] = expected[y * height + x] = value;
+          }
+        }
+        const planes = (format, w, h) => {
+          const bytes = format === 'I420P10' || format === 'I420P12' ? 2 : 1;
+          if (packed.includes(format)) return [[w * 4, h]];
+          if (format === 'NV12')
+            return [
+              [w, h],
+              [w, Math.ceil(h / 2)],
+            ];
+          const cw = format === 'I444' ? w : Math.ceil(w / 2);
+          const ch =
+            format === 'I420' || format === 'I420P10' || format === 'I420P12' || format === 'I420A'
+              ? Math.ceil(h / 2)
+              : h;
+          const result = [
+            [w * bytes, h],
+            [cw * bytes, ch],
+            [cw * bytes, ch],
+          ];
+          if (format === 'I420A') result.push([w, h]);
+          return result;
+        };
+        const layout = (format, w, h) => {
+          let offset = 0;
+          return planes(format, w, h).map(([stride, rows]) => {
+            const plane = { offset, stride };
+            offset += stride * rows;
+            return plane;
+          });
+        };
+        const source = (format) => {
+          const sourceLayout = layout(format, width, height);
+          const specs = planes(format, width, height);
+          const last = sourceLayout.length - 1;
+          const size = sourceLayout[last].offset + sourceLayout[last].stride * specs[last][1];
+          const data = new Uint8Array(size).fill(128);
+          if (packed.includes(format)) {
+            for (let y = 0; y < height; y++) {
+              let pos = sourceLayout[0].offset + y * sourceLayout[0].stride;
+              for (let x = 0; x < width; x++, pos += 4) {
+                const value = luma[y * width + x];
+                data[pos] = data[pos + 1] = data[pos + 2] = value;
+                data[pos + 3] = 255;
+              }
+            }
+          } else if (format === 'I420P10' || format === 'I420P12') {
+            const shift = format === 'I420P10' ? 2 : 4;
+            for (let y = 0; y < height; y++) {
+              let pos = sourceLayout[0].offset + y * sourceLayout[0].stride;
+              for (let x = 0; x < width; x++, pos += 2) {
+                const sample = luma[y * width + x] << shift;
+                data[pos] = sample & 255;
+                data[pos + 1] = sample >>> 8;
+              }
+            }
+          } else {
+            for (let y = 0; y < height; y++) {
+              data.set(
+                luma.subarray(y * width, (y + 1) * width),
+                sourceLayout[0].offset + y * sourceLayout[0].stride
+              );
+            }
+            if (format === 'I420A') data.fill(255, sourceLayout[3].offset);
+          }
+          return { data, layout: sourceLayout };
+        };
+        const NativeVideoFrame = globalThis.VideoFrame;
+        if (typeof NativeVideoFrame !== 'function') throw new Error('VideoFrame is unavailable');
+        const player = document.createElement('video');
+        Object.defineProperties(player, {
+          videoWidth: { configurable: true, value: width },
+          videoHeight: { configurable: true, value: height },
+        });
+        const canvas = new qr.dom.QRCanvas({}, { cropToSquare: true });
+        const rows = document.querySelector('#results');
+        let passed = 0;
+        let fallback = 0;
+        let unsupported = 0;
+        let failed = 0;
+        const row = (
+          path,
+          requested,
+          sourceFormat,
+          constructed,
+          actual,
+          different,
+          decoded,
+          error
+        ) => {
+          const exact = !error && different === 0 && decoded === payload;
+          const status =
+            exact && actual === requested
+              ? 'PASS'
+              : exact
+                ? 'FALLBACK PASS'
+                : error || constructed !== sourceFormat
+                  ? 'UNSUPPORTED'
+                  : 'FAIL';
+          const tr = document.createElement('tr');
+          for (const value of [
+            path,
+            requested,
+            constructed || '—',
+            actual || '—',
+            different === undefined ? '—' : different,
+            decoded || '—',
+            error ? `${status}: ${error}` : status,
+          ]) {
+            const td = document.createElement('td');
+            td.textContent = String(value);
+            tr.append(td);
+          }
+          tr.className =
+            status === 'PASS'
+              ? 'pass'
+              : status === 'FALLBACK PASS'
+                ? 'fallback'
+                : status === 'UNSUPPORTED'
+                  ? 'unsupported'
+                  : 'fail';
+          rows.append(tr);
+          if (status === 'PASS') passed++;
+          else if (status === 'FALLBACK PASS') fallback++;
+          else if (status === 'UNSUPPORTED') unsupported++;
+          else failed++;
+        };
+        const run = async (path, sourceFormat, requested) => {
+          const input = source(sourceFormat);
+          const create = () =>
+            new NativeVideoFrame(input.data, {
+              codedWidth: width,
+              codedHeight: height,
+              format: sourceFormat,
+              layout: input.layout,
+              timestamp: 0,
+            });
+          let constructed;
+          // Construct only the frame under test: Chromium produced black frames when the same
+          // source bytes were reused after closing a separate format-probe frame.
+          globalThis.VideoFrame = function () {
+            const frame = create();
+            constructed = frame.format;
+            return frame;
+          };
+          try {
+            const camera = new qr.dom.QRCamera(player, { format: requested });
+            const decoded = await camera.readFrame(canvas, true);
+            const actual = camera.scanned.format;
+            let different = 0;
+            for (let i = 0; i < expected.length; i++)
+              different += canvas.scanner.luma[i] !== expected[i];
+            row(path, requested, sourceFormat, constructed, actual, different, decoded);
+          } catch (error) {
+            row(
+              path,
+              requested,
+              sourceFormat,
+              constructed,
+              undefined,
+              undefined,
+              undefined,
+              `${error.name}: ${error.message}`
+            );
+          }
+        };
+        try {
+          for (const format of formats) await run('native', format, format);
+          for (const format of packed) await run('NV12 conversion', 'NV12', format);
+        } finally {
+          globalThis.VideoFrame = NativeVideoFrame;
+        }
+        document.querySelector('#agent').textContent = navigator.userAgent;
+        const summary = document.querySelector('#summary');
+        summary.textContent =
+          `${passed} passed, ${fallback} fallback passed, ` +
+          `${unsupported} unsupported, ${failed} failed`;
+        summary.className = failed ? 'fail' : 'pass';
+        document.body.dataset.status = failed ? 'failed' : 'passed';
+      })().catch((error) => {
+        const summary = document.querySelector('#summary');
+        summary.textContent = `${error.name}: ${error.message}`;
+        summary.className = 'fail';
+        document.body.dataset.status = 'failed';
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,243 @@
+@import './modern-normalize.css';
+@import './initial-styles.css';
+
+:root {
+  --azure-blue: #0092bf;
+  --azure-blue-darker: #177c9b;
+  --ash-grey: #2a2f3b;
+  --ash-grey-lighter: #575f6a;
+  --ash-grey-lightest: #8f98a6;
+  --ash-grey-darker: #1a1e24;
+  --light-beige: #fffcf0;
+  --beige: #fdefb9;
+  --dark: #100f0f;
+  --btn-red: #ff9191;
+  --btn-red-darker: #ff6d6d;
+  --red-darker: #de6262;
+  --std-radius: 5px;
+  --text-color-dark-theme: #cecdc3;
+  --success: #00b894;
+  --error: #ff4040;
+  --warning: #ffcc66; /* #FFD891 (also nice) */
+}
+
+.text-input {
+  background-color: var(--light-beige) !important;
+  color: inherit;
+  border: 1px solid var(--ash-grey);
+  outline: none;
+  border-radius: var(--std-radius);
+  padding: 6px 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.text-input:focus {
+  border: 1px solid var(--azure-blue);
+  background: var(--light-beige) !important;
+}
+
+.success {
+  color: var(--success);
+}
+
+@media (prefers-color-scheme: dark) {
+  .warning {
+    color: var(--warning);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-input {
+    background: var(--dark) !important;
+  }
+
+  .text-input:focus {
+    background: var(--dark) !important;
+  }
+}
+
+.btn {
+  font-size: 16px;
+  cursor: pointer;
+  background: var(--azure-blue);
+  color: white;
+  border: none;
+  border-radius: var(--std-radius);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  text-decoration: none;
+  user-select: none;
+}
+
+@media (min-width: 485px) {
+  .btn {
+    width: auto;
+  }
+}
+
+.btn:hover {
+  background: #0077a3;
+}
+
+.btn:active {
+  opacity: 0.9;
+}
+
+.btn-dark {
+  background: var(--ash-grey);
+  color: white;
+}
+
+.btn-dark:hover {
+  background: var(--ash-grey);
+  opacity: 0.9;
+}
+
+.btn-dark:active {
+  background-color: var(--ash-grey-lighter);
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-dark:active {
+    background-color: var(--ash-grey-darker);
+    opacity: 1;
+  }
+}
+
+.btn.disabled,
+.btn.disabled:active {
+  opacity: 0.7;
+  cursor: default;
+  pointer-events: none;
+}
+
+.btn-dark.disabled:active {
+  background: var(--ash-grey);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn.disabled,
+  .btn.disabled:active {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}
+
+.link {
+  color: var(--azure-blue-darker);
+  text-decoration: none;
+}
+
+.link:visited {
+  color: var(--azure-blue-darker);
+}
+
+@media (prefers-color-scheme: dark) {
+  .link {
+    color: var(--azure-blue);
+    text-decoration: none;
+  }
+
+  .link:visited {
+    color: var(--azure-blue);
+  }
+}
+
+.label {
+  color: white;
+  background: var(--ash-grey);
+  border: none;
+  border-radius: var(--std-radius);
+  padding: 3px 10px;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+@media (prefers-color-scheme: dark) {
+  .label {
+    color: var(--text-color-dark-theme);
+  }
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--dark);
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: spinner-rotation 1.3s linear infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  .spinner {
+    border: 1px solid #fff;
+    border-bottom-color: transparent;
+  }
+}
+
+@keyframes spinner-rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.bi-box:before {
+  content: '📦';
+}
+.bi-trash:before {
+  content: '🗑️';
+}
+.bi-copy:before {
+  content: '📋';
+}
+.bi-file-earmark-text:before {
+  content: '📃';
+}
+.bi-arrow-clockwise:before {
+  content: '🔄';
+}
+.bi-star:before {
+  content: '☆';
+}
+.bi-star-fill:before {
+  content: '★';
+}
+.bi-dash-circle-fill:before {
+  content: '⛔️';
+}
+.bi-plus-circle-fill:before {
+  content: '❇️';
+}
+.bi-x-circle-fill:before {
+  content: '🔴';
+}
+.bi-check-circle-fill:before {
+  content: '✅';
+}
+.bi-exclamation-triangle:before {
+  content: '⚠️';
+}
+.bi-chevron-left:before {
+  content: '⬅️';
+}
+.bi-chevron-right:before {
+  content: '➡️';
+}
+.bi-info-circle:before {
+  content: 'ℹ';
+}
+.bi-check2:before {
+  content: '✓';
+}
+.bi-door-closed:before {
+  content: '🚪';
+}

@@ -4,118 +4,2563 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>QR code generator and scanner</title>
   </head>
   <body>
-<div id="app">
-<h1>paulmillr-qr</h1>
+    <div id="app">
+      <header class="site-header">
+        <h1>paulmillr-qr</h1>
+        <p class="tagline">
+          Read and generate QR code patterns using @paulmillr/qr.js library. Available on
+          <a href="https://github.com/paulmillr/qr" target="_blank">GitHub</a> and
+          <a href="https://www.npmjs.com/package/qr" target="_blank">NPM</a>.
+        </p>
+      </header>
 
-<p>
-  Read and generate QR code patterns using @paulmillr/qr.js library. Available on
-  <a href="https://github.com/paulmillr/qr" target="_blank">GitHub</a> and
-  <a href="https://www.npmjs.com/package/@paulmillr/qr" target="_blank">NPM</a>.
-</p>
+      <nav class="tabs" aria-label="Demo sections">
+        <button class="tab active" type="button" data-tab="camera">Camera</button>
+        <button class="tab" type="button" data-tab="image">Image</button>
+        <button class="tab" type="button" data-tab="generate">Generate</button>
+      </nav>
 
-<h3>QR scan (camera)</h3>
+      <section class="panel active" id="panel-camera">
+        <div class="results">
+          <div id="results-container" class="results-col">
+            <div class="viewfinder" id="viewfinder">
+              <div class="video-stack">
+                <video id="qr-video" autoplay="" playsinline></video>
+                <canvas id="bitmap"></canvas>
+                <canvas id="overlay"></canvas>
+              </div>
+              <div class="vf-frame" aria-hidden="true"></div>
+              <div class="camera-start-container">
+                <div class="vf-hint" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M3 3h8v8H3V3zm2 2v4h4V5H5zm1 1h2v2H6V6zm7-3h8v8h-8V3zm2 2v4h4V5h-4zm1
+                      1h2v2h-2V6zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm1 1h2v2H6v-2zm7-3h3v2h2v-2h3v3h-2v2h2v3h-3v-2h-2v2h-3v-3h2v-2h-2v-3zm5
+                      5v-2h-2v2h2z"
+                    />
+                  </svg>
+                  <span>Point your camera at a QR code</span>
+                </div>
+                <button class="btn primary start-btn" id="startBtn">Start camera</button>
+                <span class="controls-field debug-only">
+                  <input type="file" id="qr-video-file" accept="video/*" />
+                  <label class="btn" for="qr-video-file">Decode video</label>
+                  <button class="btn" id="videoPlaybackBtn" disabled>Start video</button>
+                </span>
+                <span class="fps debug-only">
+                  DISPLAY: <span id="fps-counter"></span> FPS, CAMERA:
+                  <span id="camera-fps-counter"></span> FPS, DECODE:
+                  <span id="decode-fps-counter"></span> FPS
+                </span>
+                <span id="frame-source" class="debug-only">INPUT: unknown</span>
+              </div>
+            </div>
+            <details id="frame-statistics" class="debug-only">
+              <summary>Statistics</summary>
+              <div class="frame-stats-scroll">
+                <table id="frame-stats">
+                  <caption>
+                    Frame timing (ms; min/max/mean session, median/p95 rolling 10s x 60fps)
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Category</th>
+                      <th scope="col">Last</th>
+                      <th scope="col">Min</th>
+                      <th scope="col">Max</th>
+                      <th scope="col">Mean</th>
+                      <th scope="col">Median</th>
+                      <th scope="col">P95</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">All</th>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Hit</th>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Miss</th>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td>—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div id="frame-counters"></div>
+            </details>
+          </div>
 
-<p>
-  Click start and put some QR code in front of camera for decoding. See the decoding log and decoded
-  QR below.
-</p>
+          <div class="results-col" id="result">
+            <div class="results-qr">
+              <canvas id="resultQr"></canvas>
+              <div class="decoded-text">
+                <b id="resultTxtLabel">Decoded:</b>
+                <pre id="resultTxt"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
 
-<div class="camera-start-container">
-  <button class="start-btn" id="startBtn">Start camera</button>
-  <span class="fps">
-    FPS:
-    <span id="fps-counter"></span>
-  </span>
-</div>
+        <div class="controls debug-only" id="controls">
+          <span class="controls-field">
+            <label for="decoder-select">Library version</label>
+            <select id="decoder-select">
+              <option value="current" selected>current</option>
+            </select>
+          </span>
+          <span class="controls-field">
+            <label for="frame-format-select">Frame format</label>
+            <select id="frame-format-select">
+              <option value="auto" selected>Auto</option>
+              <option value="canvas">Canvas</option>
+              <option value="I420">I420</option>
+              <option value="I420P10">I420P10</option>
+              <option value="I420P12">I420P12</option>
+              <option value="I420A">I420A</option>
+              <option value="I422">I422</option>
+              <option value="I444">I444</option>
+              <option value="NV12">NV12</option>
+              <option value="RGBA">RGBA</option>
+              <option value="RGBX">RGBX</option>
+              <option value="BGRA">BGRA</option>
+              <option value="BGRX">BGRX</option>
+            </select>
+            <button class="btn" type="button" id="frame-format-test">Self-test</button>
+          </span>
+          <span class="controls-field">
+            <label for="resolution-select">Resolution</label>
+            <select id="resolution-select">
+              <option value="2160">4K</option>
+              <option value="1080" selected>1080p</option>
+              <option value="720">720p</option>
+              <option value="raw">Raw</option>
+            </select>
+          </span>
+          <span class="controls-field">
+            <label for="framerate-select">Camera FPS</label>
+            <select id="framerate-select">
+              <option value="60" selected>60</option>
+              <option value="30">30</option>
+              <option value="15">15</option>
+            </select>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isDrawBitmap" name="isDrawBitmap" />
+            <label for="isDrawBitmap">Computer vision mode</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isCropToSquare" name="isCropToSquare" checked />
+            <label for="isCropToSquare">Crop to square</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isDecodeAll" name="isDecodeAll" />
+            <label for="isDecodeAll">Decode all</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isMaxEffort" name="isMaxEffort" />
+            <label for="isMaxEffort">Max effort</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isAsyncDecode" name="isAsyncDecode" checked />
+            <label for="isAsyncDecode">Async decode</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isDrawFailed" name="isDrawFailed" />
+            <label for="isDrawFailed">Draw failed</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isDrawQr" name="isDrawQr" checked />
+            <label for="isDrawQr">Draw decoded</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isLogDecoded" name="isLogDecoded" />
+            <label for="isLogDecoded">Log decoded</label>
+          </span>
+          <span class="controls-field">
+            <input type="checkbox" id="isCaptureVideo" name="isCaptureVideo" />
+            <label for="isCaptureVideo">Capture camera video</label>
+          </span>
+        </div>
 
-<div class="controls" id="controls">
-  <span class="controls-field">
-    <input type="checkbox" id="isDrawBitmap" name="isDrawBitmap" checked />
-    <label for="isDrawBitmap">Computer vision mode</label>
-  </span>
-  <span class="controls-field">
-    <input type="checkbox" id="isCropToSquare" name="isCropToSquare" checked />
-    <label for="isCropToSquare">Crop to square</label>
-  </span>
-  <span class="controls-field">
-    <input type="checkbox" id="isDrawQr" name="isDrawQr" checked />
-    <label for="isDrawQr">Draw decoded</label>
-  </span>
-  <span class="controls-field">
-    <input type="checkbox" id="isLogDecoded" name="isLogDecoded" />
-    <label for="isLogDecoded">Log decoded</label>
-  </span>
-  <span class="controls-field">
-    <input type="checkbox" id="isFullVideo" name="isFullVideo" />
-    <label for="isFullVideo">High-res</label>
-  </span>
-</div>
+        <div id="capture-result" class="debug-only"></div>
+        <div id="log-stats" class="debug-only"></div>
+        <div id="log" class="debug-only"></div>
+      </section>
 
-<hr />
+      <section class="panel" id="panel-image">
+        <p class="panel-desc">
+          Decode a QR code from a photo or screenshot (uses slow, high-accuracy mode).
+        </p>
+        <div class="action-row">
+          <input type="file" id="qr-decode-image" accept="image/*" />
+          <label class="btn primary" for="qr-decode-image">Choose image…</label>
+          <input type="submit" class="btn" id="qr-decode-image-clear" value="Clear result" />
+          <span class="controls-field debug-only">
+            <input type="checkbox" id="qr-decode-debug" name="qr-decode-debug" />
+            <label for="qr-decode-debug">Debug</label>
+          </span>
+        </div>
+        <div id="qr-decode-image-result"></div>
+      </section>
 
-<div class="results">
-  <div id="results-container" class="results-col">
-    <video id="qr-video" autoplay=""></video>
-    <canvas id="bitmap"></canvas>
-    <canvas id="overlay"></canvas>
-  </div>
+      <section class="panel" id="panel-generate">
+        <div class="input-field">
+          <label class="input-label" for="input-encode">Text or URL to encode into QR</label>
+          <input
+            class="text-input"
+            id="input-encode"
+            type="text"
+            placeholder="Hello world!"
+            value="Hello world!"
+          />
+        </div>
+        <div class="gen-options">
+          <nav class="style-picker" id="style-picker" aria-label="QR style">
+            <button class="style-btn" type="button" data-style="classic">Classic</button>
+            <button class="style-btn active" type="button" data-style="I">I · Dots</button>
+            <button class="style-btn" type="button" data-style="II">II · Lines</button>
+            <button class="style-btn" type="button" data-style="III">III · Halftone</button>
+          </nav>
+          <span class="controls-field">
+            <label for="ecc-select">Error correction</label>
+            <select id="ecc-select">
+              <option value="low">Low (7%)</option>
+              <option value="medium" selected>Medium (15%)</option>
+              <option value="quartile">Quartile (25%)</option>
+              <option value="high">High (30%)</option>
+            </select>
+          </span>
+          <span class="controls-field" id="halftone-field" hidden>
+            <input type="file" id="halftone-image" accept="image/*" />
+            <label class="btn" for="halftone-image">Choose artwork…</label>
+          </span>
+        </div>
+        <div class="encode">
+          <div class="qr-card">
+            <img id="encResultQr" src="" alt="encoded qr" hidden />
+            <div id="encResultSvg" hidden></div>
+          </div>
+        </div>
+        <div class="gen-actions">
+          <span id="scan-check" class="scan-check" hidden></span>
+          <button class="btn" type="button" id="download-svg">Download SVG</button>
+          <button class="btn" type="button" id="download-png">Download PNG</button>
+        </div>
+      </section>
 
-  <div class="results-col" id="result">
-    <div class="results-qr">
-      <canvas id="resultQr"></canvas>
-      <div class="decoded-text">
-        <b id="resultTxtLabel">Decoded:</b>
-        <i id="resultTxt"></i>
-      </div>
+      <footer class="site-footer">
+        <span><a href="https://paulmillr.com" target="_blank">paulmillr.com</a></span>
+        <span>
+          <a class="normal-only" href="?debug=1">Diagnostics</a>
+          <a class="debug-only" href="./">Exit diagnostics</a>
+        </span>
+      </footer>
+
+      <dialog id="frame-format-dialog">
+        <div class="fft-head">
+          <h2>VideoFrame format self-test</h2>
+          <form method="dialog"><button class="btn">Close</button></form>
+        </div>
+        <p id="fft-summary">Running…</p>
+        <p class="panel-desc">
+          Unsupported means the browser did not preserve the constructed source format. Fallback
+          pass means the requested conversion was unavailable, but the production native fallback
+          remained exact and decoded successfully.
+        </p>
+        <p id="fft-agent"></p>
+        <div class="fft-scroll">
+          <table id="fft-table">
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Requested</th>
+                <th>Browser source</th>
+                <th>Scanner input</th>
+                <th>Luma differences</th>
+                <th>Decoded</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="fft-results"></tbody>
+          </table>
+        </div>
+      </dialog>
+      <script>
+        // All bundles define the same global `qr`; the choice from the "Library
+        // version" dropdown is persisted and applied here, before the demo script.
+        (function () {
+          var v = localStorage.getItem('qr-demo-decoder');
+          var sources = {
+            current: './qr.min.js',
+          };
+          if (!sources[v]) v = 'current';
+          window.QR_DEMO_DECODER = v;
+          document.write('<script src="' + sources[v] + '"><\/script>');
+        })();
+      </script>
+      <script>
+        const { encodeQR, decodeQR } = qr;
+        const { QRCanvas, QRCamera, frameLoop, getSize } = qr.dom;
+        const openCamera = qr.dom.rearCamera;
+        const DECODER_VERSION =
+          window.QR_DEMO_DECODER || localStorage.getItem('qr-demo-decoder') || 'current';
+        const DECODER_NAMES = {
+          current: 'current',
+        };
+
+        // ?debug=1 reveals the diagnostics UI (controls, stats, capture, log); the
+        // plain page shows only scan/generate. Everything stays wired either way.
+        if (new URLSearchParams(location.search).get('debug') === '1')
+          document.body.classList.add('debug');
+
+        let IS_STARTED_VIDEO = false;
+
+        const pad = (n, z = 2) => ('' + n).padStart(z, '0');
+
+        const time = () => {
+          const d = new Date();
+          return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}:${pad(
+            d.getMilliseconds(),
+            3
+          )}`;
+        };
+
+        // `16.0ms` when there is a fractional part, `16ms` when there is not.
+        const fmtMs = (ms) => `${Number.isInteger(ms) ? ms : ms.toFixed(1)}ms`;
+
+        const FRAME_WINDOW = 600;
+        const timingSort = new Float64Array(FRAME_WINDOW);
+        const timingWindow = () => {
+          const values = new Float64Array(FRAME_WINDOW);
+          const summary = { last: 0, min: 0, max: 0, mean: 0, median: 0, p95: 0 };
+          let pos = 0;
+          let len = 0;
+          let sessionLen = 0;
+          let sessionSum = 0;
+          let sessionMin = Infinity;
+          let sessionMax = -Infinity;
+          return {
+            add(value) {
+              if (len < FRAME_WINDOW) len++;
+              values[pos] = value;
+              pos = (pos + 1) % FRAME_WINDOW;
+              sessionLen++;
+              sessionSum += value;
+              if (value < sessionMin) sessionMin = value;
+              if (value > sessionMax) sessionMax = value;
+            },
+            clear() {
+              pos = 0;
+              len = 0;
+              sessionLen = 0;
+              sessionSum = 0;
+              sessionMin = Infinity;
+              sessionMax = -Infinity;
+            },
+            summary() {
+              if (!len) return;
+              // Quantiles refresh outside the frame hot path; one shared scratch plane
+              // avoids a fresh slice allocation for each rolling-window summary.
+              for (let i = 0; i < len; i++) timingSort[i] = values[i];
+              timingSort.fill(Infinity, len);
+              timingSort.sort();
+              const middle = len >> 1;
+              summary.last = values[(pos + FRAME_WINDOW - 1) % FRAME_WINDOW];
+              summary.min = sessionMin;
+              summary.max = sessionMax;
+              summary.mean = sessionSum / sessionLen;
+              summary.median =
+                len & 1 ? timingSort[middle] : (timingSort[middle - 1] + timingSort[middle]) / 2;
+              summary.p95 = timingSort[Math.ceil(0.95 * len) - 1];
+              return summary;
+            },
+          };
+        };
+
+        const epoch = () => {
+          let current = 0;
+          return { next: () => ++current, owns: (value) => value === current };
+        };
+
+        const MAX_LOG_ENTRIES = 1000;
+        const log = (...txt) => {
+          const el = document.querySelector('#log');
+          const entry = document.createElement('div');
+          entry.className = 'log-entry';
+          entry.innerHTML = `${time()} ${txt.join(' ').replace('\n', '<br>')}`;
+          el.prepend(entry);
+          while (el.children.length > MAX_LOG_ENTRIES) el.lastChild.remove();
+        };
+
+        const error = (...txt) => log('[<span class="qr-error">ERROR</span>]', ...txt);
+        const ok = (...txt) => log('[<span class="qr-ok">OK</span>]', ...txt);
+
+        function fpsCounter(elm, frameCount) {
+          const values = new Float64Array(frameCount);
+          let pos = 0;
+          let len = 0;
+          let sum = 0;
+          let prevTs;
+          let cnt = 0;
+          const clear = () => {
+            pos = 0;
+            len = 0;
+            sum = 0;
+            prevTs = undefined;
+            cnt = 0;
+            elm.innerText = '—';
+          };
+          const add = (ts) => {
+            if (prevTs === undefined) {
+              prevTs = ts;
+              return;
+            }
+            const elapsed = ts - prevTs;
+            prevTs = ts;
+            if (len === frameCount) sum -= values[pos];
+            else len++;
+            values[pos] = elapsed;
+            sum += elapsed;
+            pos = (pos + 1) % frameCount;
+            // 10 is pretty random, just to make counter readable
+            if (cnt++ % 10 === 0) elm.innerText = (1000 / (sum / len)).toFixed(2);
+          };
+          clear();
+          return { add, clear };
+        }
+
+        function main() {
+          ok('Started, decoder:', DECODER_NAMES[DECODER_VERSION]);
+          // The bundle was already chosen at load time (see index.html); changing
+          // the dropdown persists the choice and reloads with the selected one.
+          const decoderSel = document.querySelector('#decoder-select');
+          decoderSel.value = DECODER_VERSION;
+          decoderSel.addEventListener('change', () => {
+            localStorage.setItem('qr-demo-decoder', decoderSel.value);
+            location.reload();
+          });
+          const domFps = fpsCounter(document.querySelector('#fps-counter'), 60);
+          const cameraFps = fpsCounter(document.querySelector('#camera-fps-counter'), 60);
+          const decodeFps = fpsCounter(document.querySelector('#decode-fps-counter'), 60);
+          const frameSource = document.querySelector('#frame-source');
+          frameLoop(domFps.add); // last 60 animation-frame intervals
+          // Error handlers
+          window.onerror = (message) => error('Onerror:', message);
+          window.addEventListener('unhandledrejection', (event) => error('Promise:', event.reason));
+          // Decode (camera)
+          // DOM elements
+          const camSelContainer = document.querySelector('.camera-start-container');
+          const player = document.querySelector('video');
+          const videoFile = document.querySelector('#qr-video-file');
+          const videoPlaybackBtn = document.querySelector('#videoPlaybackBtn');
+          const overlay = document.querySelector('#overlay');
+          const resultTxt = document.querySelector('#resultTxt');
+          const resultTxtLabel = document.querySelector('#resultTxtLabel');
+          const resultQr = document.querySelector('#resultQr');
+          const bitmapCanvas = document.querySelector('#bitmap');
+          const imgEncodeQr = document.querySelector('#encResultQr');
+          const inputEncode = document.querySelector('#input-encode');
+          const frameStats = document.querySelector('#frame-stats');
+          const frameCounters = document.querySelector('#frame-counters');
+          const captureResult = document.querySelector('#capture-result');
+          const viewfinder = document.querySelector('#viewfinder');
+          const resultCard = document.querySelector('#result');
+          // Tabs only swap visibility; the camera pipeline stays wired while hidden.
+          // The hash deep-links a tab (#image, #generate) and survives reloads.
+          const selectTab = (tab) => {
+            for (const other of document.querySelectorAll('.tabs .tab'))
+              other.classList.toggle('active', other === tab);
+            for (const panel of document.querySelectorAll('.panel'))
+              panel.classList.toggle('active', panel.id === 'panel-' + tab.dataset.tab);
+          };
+          for (const tab of document.querySelectorAll('.tabs .tab'))
+            tab.addEventListener('click', () => {
+              selectTab(tab);
+              history.replaceState(null, '', '#' + tab.dataset.tab);
+            });
+          const linkedTab = Array.from(document.querySelectorAll('.tabs .tab')).find(
+            (tab) => tab.dataset.tab === location.hash.slice(1)
+          );
+          if (linkedTab) selectTab(linkedTab);
+          let canvasQr;
+          // Controls
+          const isDrawQr = document.querySelector('#isDrawQr');
+          const isDrawBitmap = document.querySelector('#isDrawBitmap');
+          const isCropToSquare = document.querySelector('#isCropToSquare');
+          const isDecodeAll = document.querySelector('#isDecodeAll');
+          const isAsyncDecode = document.querySelector('#isAsyncDecode');
+          const isDrawFailed = document.querySelector('#isDrawFailed');
+          const isLogDecoded = document.querySelector('#isLogDecoded');
+          const isCaptureVideo = document.querySelector('#isCaptureVideo');
+          const frameFormatSel = document.querySelector('#frame-format-select');
+          const resolutionSel = document.querySelector('#resolution-select');
+          const framerateSel = document.querySelector('#framerate-select');
+          const rows = Array.from(frameStats.tBodies[0].rows);
+          const allTimes = timingWindow();
+          const hitTimes = timingWindow();
+          const missTimes = timingWindow();
+          const payloads = new Set();
+          let totalDecodes = 0;
+          let missedFrames = 0;
+          let measuredFrames = 0;
+          let statsRun = 0;
+          const updateTimingRow = (row, summary) => {
+            const value = (n) => n.toFixed(1);
+            const values = summary
+              ? [
+                  value(summary.last),
+                  value(summary.min),
+                  value(summary.max),
+                  value(summary.mean),
+                  value(summary.median),
+                  value(summary.p95),
+                ]
+              : ['—', '—', '—', '—', '—', '—'];
+            for (let i = 0; i < values.length; i++) row.cells[i + 1].textContent = values[i];
+          };
+          const updateFrameStats = () => {
+            updateTimingRow(rows[0], allTimes.summary());
+            updateTimingRow(rows[1], hitTimes.summary());
+            updateTimingRow(rows[2], missTimes.summary());
+            frameCounters.textContent =
+              `Unique payloads: ${payloads.size} / total decodes: ${totalDecodes}` +
+              ` / missed frames: ${missedFrames}`;
+          };
+          const resetFrameStats = () => {
+            statsRun++;
+            allTimes.clear();
+            hitTimes.clear();
+            missTimes.clear();
+            payloads.clear();
+            totalDecodes = 0;
+            missedFrames = 0;
+            measuredFrames = 0;
+            cameraFps.clear();
+            decodeFps.clear();
+            updateFrameStats();
+          };
+          const addFrameStats = (res, elapsed) => {
+            allTimes.add(elapsed);
+            let count = 0;
+            if (Array.isArray(res)) {
+              for (const payload of res)
+                if (typeof payload === 'string') {
+                  payloads.add(payload);
+                  count++;
+                }
+            } else if (typeof res === 'string') {
+              payloads.add(res);
+              count = 1;
+            }
+            if (!count) {
+              missTimes.add(elapsed);
+              missedFrames++;
+            } else {
+              hitTimes.add(elapsed);
+              totalDecodes += count;
+            }
+            measuredFrames++;
+            // Quantile sorting is deliberately throttled away from the decode path.
+            if (measuredFrames === 1 || measuredFrames % 30 === 0) updateFrameStats();
+          };
+          resetFrameStats();
+          // Decodes/sec: a constant line pinned above the log, shown while
+          // "Log decoded" is enabled. Rolling 5-second window.
+          const decodeTimes = [];
+          const statsEl = document.querySelector('#log-stats');
+          const STATS_WINDOW_MS = 5000;
+          const updateStats = () => {
+            const show = isLogDecoded.checked;
+            statsEl.style.display = show ? 'block' : 'none';
+            if (!show) return;
+            const now = performance.now();
+            while (decodeTimes.length && now - decodeTimes[0] > STATS_WINDOW_MS)
+              decodeTimes.shift();
+            const rate = decodeTimes.length / (STATS_WINDOW_MS / 1000);
+            statsEl.innerText = `Decodes/sec: ${rate.toFixed(1)}`;
+          };
+          setInterval(updateStats, 500);
+          isLogDecoded.addEventListener('change', updateStats);
+          updateStats();
+          // Main canvas setup
+          const onVideoFrame = (frame) => {
+            const rect = frame.visibleRect;
+            log(
+              'VideoFrame:',
+              `format=${frame.format}, coded=${frame.codedWidth}x${frame.codedHeight}, visible=${
+                rect ? `${rect.x},${rect.y} ${rect.width}x${rect.height}` : '?'
+              }, display=${frame.displayWidth}x${frame.displayHeight}, player=${player.videoWidth}x${
+                player.videoHeight
+              }, rotation=${frame.rotation === undefined ? '?' : frame.rotation}, flip=${!!frame.flip}`
+            );
+          };
+          const onFrameSource = (source) => {
+            frameSource.textContent = `INPUT: ${source === 'canvas' ? 'canvas fallback' : source}`;
+          };
+          const setup = () => {
+            if (canvasQr) canvasQr.clear();
+            const opts = { cropToSquare: isCropToSquare.checked, onVideoFrame };
+            opts.drawFailed = isDrawFailed.checked;
+            opts.onFrameSource = onFrameSource;
+            if (isMaxEffort.checked) {
+              opts.effort = Infinity;
+              opts.timeLimit = Infinity;
+            }
+            frameSource.textContent = 'INPUT: waiting';
+            if (isAsyncDecode.checked) opts.async = true;
+            if (isDecodeAll.checked) opts.decodeAll = true;
+            canvasQr = new QRCanvas(
+              {
+                overlay,
+                bitmap: isDrawBitmap.checked ? bitmapCanvas : undefined,
+                resultQR: isDrawQr.checked ? resultQr : undefined,
+              },
+              opts
+            );
+            bitmapCanvas.style.display = isDrawBitmap.checked ? 'block' : 'none';
+          };
+          setup();
+          for (const c of [
+            isDrawQr,
+            isDrawBitmap,
+            isCropToSquare,
+            isDecodeAll,
+            isMaxEffort,
+            isAsyncDecode,
+            isDrawFailed,
+          ])
+            c.addEventListener('change', setup);
+
+          // Resolution and camera-fps switching happens on the active track: the
+          // library's rearCamera() opens a stream, then we reconfigure it in place.
+          const applyTrackConstraints = async () => {
+            const stream = player.srcObject;
+            if (!stream) return;
+            const track = stream.getVideoTracks()[0];
+            if (!track) return;
+            const frameRate = +framerateSel.value;
+            try {
+              const constraints = { frameRate: { ideal: frameRate } };
+              // Raw removes any previous size request while retaining comparable FPS.
+              if (resolutionSel.value !== 'raw') {
+                const height = +resolutionSel.value;
+                constraints.width = { ideal: Math.round((height * 16) / 9) };
+                constraints.height = { ideal: height };
+              }
+              await track.applyConstraints(constraints);
+              const s = track.getSettings();
+              ok(
+                `Camera set to ${s.width}x${s.height}@${s.frameRate ? s.frameRate.toFixed(0) : '?'}fps`
+              );
+            } catch (e) {
+              error('Constraints', e);
+            }
+          };
+          resolutionSel.addEventListener('change', applyTrackConstraints);
+          framerateSel.addEventListener('change', applyTrackConstraints);
+
+          // Camera operations cross permission/device awaits; only the latest Start may own the player.
+          const cameraEpoch = epoch();
+          let camera;
+          let frameReader;
+          let videoUrl;
+          let isVideoPlaying = false;
+          let cameraTask = Promise.resolve();
+          let recorder;
+          let captureUrl;
+          let captureChunks = [];
+          const cameraOpts = () => ({ format: frameFormatSel.value });
+          frameFormatSel.addEventListener('change', () => {
+            if (frameReader && typeof frameReader.setFormat === 'function')
+              frameReader.setFormat(frameFormatSel.value);
+            resetFrameStats();
+          });
+          // VideoFrame format self-test, shown as a modal: builds synthetic
+          // frames in every WebCodecs pixel format and runs each through the
+          // production QRCamera/QRCanvas path. It briefly wraps the global
+          // VideoFrame constructor so QRCamera picks up the synthetic frame;
+          // the wrapper is restored in the finally below.
+          const fftDialog = document.querySelector('#frame-format-dialog');
+          const fftButton = document.querySelector('#frame-format-test');
+          const fftSummary = document.querySelector('#fft-summary');
+          const fftAgent = document.querySelector('#fft-agent');
+          const fftResults = document.querySelector('#fft-results');
+          let fftRunning = false;
+          const runFrameFormatSelfTest = async () => {
+            fftResults.replaceChildren();
+            fftSummary.textContent = 'Running…';
+            fftSummary.className = '';
+            delete fftDialog.dataset.status;
+            fftAgent.textContent = navigator.userAgent;
+            const formats = [
+              'I420',
+              'I420P10',
+              'I420P12',
+              'I420A',
+              'I422',
+              'I444',
+              'NV12',
+              'RGBA',
+              'RGBX',
+              'BGRA',
+              'BGRX',
+            ];
+            const packed = ['RGBA', 'RGBX', 'BGRA', 'BGRX'];
+            const payload = 'VIDEOFRAME FORMAT';
+            const scale = 4;
+            const matrix = encodeQR(payload, 'raw', {
+              border: 4,
+              ecc: 'low',
+              mask: 0,
+              version: 2,
+            });
+            const height = matrix.length * scale;
+            const width = height + 20;
+            const cropX = 10;
+            const luma = new Uint8Array(width * height).fill(255);
+            const expected = new Uint8Array(height * height);
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < height; x++) {
+                const value = matrix[(y / scale) | 0][(x / scale) | 0] ? 0 : 255;
+                luma[y * width + cropX + x] = expected[y * height + x] = value;
+              }
+            }
+            const planes = (format, w, h) => {
+              const bytes = format === 'I420P10' || format === 'I420P12' ? 2 : 1;
+              if (packed.includes(format)) return [[w * 4, h]];
+              if (format === 'NV12')
+                return [
+                  [w, h],
+                  [w, Math.ceil(h / 2)],
+                ];
+              const cw = format === 'I444' ? w : Math.ceil(w / 2);
+              const ch =
+                format === 'I420' ||
+                format === 'I420P10' ||
+                format === 'I420P12' ||
+                format === 'I420A'
+                  ? Math.ceil(h / 2)
+                  : h;
+              const result = [
+                [w * bytes, h],
+                [cw * bytes, ch],
+                [cw * bytes, ch],
+              ];
+              if (format === 'I420A') result.push([w, h]);
+              return result;
+            };
+            const layout = (format, w, h) => {
+              let offset = 0;
+              return planes(format, w, h).map(([stride, rows]) => {
+                const plane = { offset, stride };
+                offset += stride * rows;
+                return plane;
+              });
+            };
+            const source = (format) => {
+              const sourceLayout = layout(format, width, height);
+              const specs = planes(format, width, height);
+              const last = sourceLayout.length - 1;
+              const size = sourceLayout[last].offset + sourceLayout[last].stride * specs[last][1];
+              const data = new Uint8Array(size).fill(128);
+              if (packed.includes(format)) {
+                for (let y = 0; y < height; y++) {
+                  let pos = sourceLayout[0].offset + y * sourceLayout[0].stride;
+                  for (let x = 0; x < width; x++, pos += 4) {
+                    const value = luma[y * width + x];
+                    data[pos] = data[pos + 1] = data[pos + 2] = value;
+                    data[pos + 3] = 255;
+                  }
+                }
+              } else if (format === 'I420P10' || format === 'I420P12') {
+                const shift = format === 'I420P10' ? 2 : 4;
+                for (let y = 0; y < height; y++) {
+                  let pos = sourceLayout[0].offset + y * sourceLayout[0].stride;
+                  for (let x = 0; x < width; x++, pos += 2) {
+                    const sample = luma[y * width + x] << shift;
+                    data[pos] = sample & 255;
+                    data[pos + 1] = sample >>> 8;
+                  }
+                }
+              } else {
+                for (let y = 0; y < height; y++) {
+                  data.set(
+                    luma.subarray(y * width, (y + 1) * width),
+                    sourceLayout[0].offset + y * sourceLayout[0].stride
+                  );
+                }
+                if (format === 'I420A') data.fill(255, sourceLayout[3].offset);
+              }
+              return { data, layout: sourceLayout };
+            };
+            const NativeVideoFrame = globalThis.VideoFrame;
+            if (typeof NativeVideoFrame !== 'function')
+              throw new Error('VideoFrame is unavailable');
+            if (typeof QRCamera !== 'function')
+              throw new Error('QRCamera is unavailable in this bundle');
+            const testPlayer = document.createElement('video');
+            Object.defineProperties(testPlayer, {
+              videoWidth: { configurable: true, value: width },
+              videoHeight: { configurable: true, value: height },
+            });
+            const testCanvas = new QRCanvas({}, { cropToSquare: true });
+            let passed = 0;
+            let fallback = 0;
+            let unsupported = 0;
+            let failed = 0;
+            const row = (
+              path,
+              requested,
+              sourceFormat,
+              constructed,
+              actual,
+              different,
+              decoded,
+              rowError
+            ) => {
+              const exact = !rowError && different === 0 && decoded === payload;
+              const status =
+                exact && actual === requested
+                  ? 'PASS'
+                  : exact
+                    ? 'FALLBACK PASS'
+                    : rowError || constructed !== sourceFormat
+                      ? 'UNSUPPORTED'
+                      : 'FAIL';
+              const tr = document.createElement('tr');
+              for (const value of [
+                path,
+                requested,
+                constructed || '—',
+                actual || '—',
+                different === undefined ? '—' : different,
+                decoded || '—',
+                rowError ? `${status}: ${rowError}` : status,
+              ]) {
+                const td = document.createElement('td');
+                td.textContent = String(value);
+                tr.append(td);
+              }
+              tr.className =
+                status === 'PASS'
+                  ? 'pass'
+                  : status === 'FALLBACK PASS'
+                    ? 'fallback'
+                    : status === 'UNSUPPORTED'
+                      ? 'unsupported'
+                      : 'fail';
+              fftResults.append(tr);
+              if (status === 'PASS') passed++;
+              else if (status === 'FALLBACK PASS') fallback++;
+              else if (status === 'UNSUPPORTED') unsupported++;
+              else failed++;
+            };
+            const run = async (path, sourceFormat, requested) => {
+              const input = source(sourceFormat);
+              const create = () =>
+                new NativeVideoFrame(input.data, {
+                  codedWidth: width,
+                  codedHeight: height,
+                  format: sourceFormat,
+                  layout: input.layout,
+                  timestamp: 0,
+                });
+              let constructed;
+              // Construct only the frame under test: Chromium produced black
+              // frames when the same source bytes were reused after closing a
+              // separate format-probe frame.
+              globalThis.VideoFrame = function () {
+                const frame = create();
+                constructed = frame.format;
+                return frame;
+              };
+              try {
+                const testCamera = new QRCamera(testPlayer, { format: requested });
+                const decoded = await testCamera.readFrame(testCanvas, true);
+                const actual = testCamera.scanned.format;
+                let different = 0;
+                for (let i = 0; i < expected.length; i++)
+                  different += testCanvas.scanner.luma[i] !== expected[i];
+                row(path, requested, sourceFormat, constructed, actual, different, decoded);
+              } catch (runError) {
+                row(
+                  path,
+                  requested,
+                  sourceFormat,
+                  constructed,
+                  undefined,
+                  undefined,
+                  undefined,
+                  `${runError.name}: ${runError.message}`
+                );
+              }
+            };
+            try {
+              for (const format of formats) await run('native', format, format);
+              for (const format of packed) await run('NV12 conversion', 'NV12', format);
+            } finally {
+              globalThis.VideoFrame = NativeVideoFrame;
+            }
+            fftSummary.textContent =
+              `${passed} passed, ${fallback} fallback passed, ` +
+              `${unsupported} unsupported, ${failed} failed`;
+            fftSummary.className = failed ? 'fail' : 'pass';
+            fftDialog.dataset.status = failed ? 'failed' : 'passed';
+          };
+          fftButton.addEventListener('click', () => {
+            // JSDOM lacks showModal; falling back to the open attribute keeps
+            // the flow scriptable there.
+            if (typeof fftDialog.showModal === 'function') fftDialog.showModal();
+            else fftDialog.setAttribute('open', '');
+            if (fftRunning) return;
+            fftRunning = true;
+            runFrameFormatSelfTest()
+              .catch((e) => {
+                fftSummary.textContent = `${e.name}: ${e.message}`;
+                fftSummary.className = 'fail';
+                fftDialog.dataset.status = 'failed';
+              })
+              .finally(() => {
+                fftRunning = false;
+              });
+          });
+          const captureType = () => {
+            const types = [
+              'video/webm;codecs=vp9',
+              'video/webm;codecs=vp8',
+              'video/webm',
+              'video/mp4',
+            ];
+            if (typeof MediaRecorder.isTypeSupported !== 'function') return '';
+            return types.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+          };
+          const clearCapture = () => {
+            if (captureUrl && typeof URL.revokeObjectURL === 'function')
+              URL.revokeObjectURL(captureUrl);
+            captureUrl = undefined;
+            captureResult.replaceChildren();
+          };
+          const finishCapture = () => {
+            const type = recorder.mimeType || 'video/webm';
+            const blob = new Blob(captureChunks, { type });
+            captureUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = captureUrl;
+            link.download = `qr-camera-${Date.now()}.${type.includes('mp4') ? 'mp4' : 'webm'}`;
+            link.textContent = 'Download captured video';
+            captureResult.replaceChildren(link);
+            recorder = undefined;
+            captureChunks = [];
+          };
+          const startCapture = () => {
+            if (!isCaptureVideo.checked || recorder || typeof MediaRecorder === 'undefined') return;
+            const stream = player.srcObject;
+            if (!stream) return;
+            clearCapture();
+            captureChunks = [];
+            const mimeType = captureType();
+            const options = { videoBitsPerSecond: 25_000_000 };
+            if (mimeType) options.mimeType = mimeType;
+            try {
+              recorder = new MediaRecorder(stream, options);
+            } catch {
+              recorder = new MediaRecorder(stream);
+            }
+            recorder.addEventListener('dataavailable', (event) => {
+              if (event.data && event.data.size) captureChunks.push(event.data);
+            });
+            recorder.addEventListener('stop', finishCapture, { once: true });
+            recorder.addEventListener('error', (event) => error('Capture', event.error || event));
+            // Record the negotiated source stream before canvas crop and decode, so
+            // uploading the result exercises the same QRCanvas input boundary.
+            recorder.start(1000);
+          };
+          const stopCapture = () => {
+            if (!recorder || recorder.state === 'inactive') return;
+            return new Promise((resolve) => {
+              recorder.addEventListener('stop', resolve, { once: true });
+              recorder.stop();
+            });
+          };
+          // openCamera and setDevice both write player.srcObject. Serializing them is
+          // the only way to keep a returned camera paired with the stream it attached.
+          const queueCamera = (fn) => {
+            const task = cameraTask.then(fn);
+            cameraTask = task.catch(() => {});
+            return task;
+          };
+          const discardCamera = (value) => {
+            value.stop();
+            player.srcObject = null;
+          };
+          const addCameraSelect = (devices, run) => {
+            if (devices.length < 2) return; // nothing to switch between
+            const select = document.createElement('select');
+            select.id = 'camera-select';
+            select.onchange = async () => {
+              const selected = camera;
+              if (!selected) return;
+              const device = select.value;
+              await queueCamera(async () => {
+                if (!cameraEpoch.owns(run) || selected !== camera || !IS_STARTED_VIDEO) return;
+                const stopping = stopCapture();
+                if (stopping) await stopping;
+                await selected.setDevice(device);
+                if (!cameraEpoch.owns(run) || selected !== camera || !IS_STARTED_VIDEO) {
+                  discardCamera(selected);
+                  return;
+                }
+                // setDevice re-opens the stream with only deviceId — reapply res/fps
+                await applyTrackConstraints();
+                resetFrameStats();
+                startCapture();
+              });
+            };
+            for (const { deviceId, label } of devices) {
+              const option = document.createElement('option');
+              option.value = deviceId;
+              option.text = label;
+              select.appendChild(option);
+            }
+            // Enumeration order need not start with the stream the browser actually opened.
+            const active = player.srcObject?.getVideoTracks?.()[0]?.getSettings?.().deviceId;
+            if (active)
+              for (const option of select.options)
+                if (option.value === active) {
+                  select.value = active;
+                  break;
+                }
+            camSelContainer.appendChild(select);
+          };
+          const removeCameraSelect = () => {
+            const sel = document.querySelector('#camera-select');
+            if (sel) sel.remove();
+          };
+
+          let cancelMainLoop;
+          const setVideoPlayback = (playing) => {
+            isVideoPlaying = playing;
+            videoPlaybackBtn.disabled = !videoUrl;
+            videoPlaybackBtn.innerText = playing ? 'Pause video' : 'Start video';
+          };
+          const readPlayerFrame = () =>
+            frameReader
+              ? frameReader.readFrame(canvasQr, true)
+              : canvasQr.drawImage(player, player.videoHeight, player.videoWidth);
+          const finishFrame = (result, started) => {
+            const finished = performance.now();
+            const elapsed = finished - started;
+            decodeFps.add(finished);
+            addFrameStats(result, elapsed);
+            if (result !== undefined) {
+              let text = '';
+              if (Array.isArray(result)) {
+                for (const value of result)
+                  if (typeof value === 'string') text += `${text ? '\n' : ''}${value}`;
+              } else if (typeof result === 'string') text = result;
+              if (!text) return;
+              resultTxt.innerText = text;
+              resultTxtLabel.style.display = 'inline';
+              resultCard.classList.add('has-result');
+              if (isLogDecoded.checked) {
+                if (Array.isArray(result))
+                  for (const value of result) {
+                    if (typeof value !== 'string') continue;
+                    decodeTimes.push(finished);
+                    ok('Decoded', `"${value}"`, fmtMs(elapsed));
+                  }
+                else {
+                  decodeTimes.push(finished);
+                  ok('Decoded', `"${result}"`, fmtMs(elapsed));
+                }
+              }
+            }
+          };
+          let readingFrame = false;
+          let frameStarted = 0;
+          let frameRun = 0;
+          let pendingRun = 0;
+          let pendingStatsRun = 0;
+          const finishRead = (result) => {
+            readingFrame = false;
+            if (pendingRun === frameRun && pendingStatsRun === statsRun)
+              finishFrame(result, frameStarted);
+          };
+          const failRead = (reason) => {
+            readingFrame = false;
+            if (pendingRun === frameRun) error('Frame', reason);
+          };
+          const mainLoop = () => {
+            const run = ++frameRun;
+            const cancel = frameLoop((ts) => {
+              cameraFps.add(ts);
+              // `play` may precede metadata by multiple frames. QRCanvas cannot draw
+              // 0x0 inputs, but naturally adapts if later frames change dimensions.
+              if (
+                readingFrame ||
+                player.readyState < 2 ||
+                !player.videoWidth ||
+                !player.videoHeight
+              )
+                return;
+              const started = performance.now();
+              // Camera and replay both use intrinsic dimensions and the selected
+              // bundle's QRCanvas, including drawImage/getImageData/decode/overlay work.
+              const res = readPlayerFrame();
+              if (res && typeof res.then === 'function') {
+                readingFrame = true;
+                frameStarted = started;
+                pendingRun = run;
+                pendingStatsRun = statsRun;
+                res.then(finishRead, failRead);
+              } else {
+                finishFrame(res, started);
+              }
+            }, player);
+            return () => {
+              if (frameRun === run) frameRun++;
+              cancel();
+            };
+          };
+
+          player.addEventListener('play', () => {
+            if (!camera && !videoUrl) return;
+            if (videoUrl) setVideoPlayback(true);
+            // We won't have correct size until video starts playing
+            const { height, width } = getSize(player);
+            const videoSize = `${player.videoWidth}x${player.videoHeight}`;
+            const dimensions = `element=${width}x${height}, video=${videoSize}`;
+            ok(`Got video feed: ${dimensions}`);
+            if (cancelMainLoop) cancelMainLoop(); // stop
+            cancelMainLoop = mainLoop();
+          });
+          for (const event of ['pause', 'ended'])
+            player.addEventListener(event, () => {
+              if (videoUrl) setVideoPlayback(false);
+              if (cancelMainLoop) {
+                cancelMainLoop();
+                cancelMainLoop = undefined;
+              }
+              updateFrameStats();
+            });
+          videoPlaybackBtn.addEventListener('click', async () => {
+            if (!videoUrl || camera) return;
+            if (isVideoPlaying) player.pause();
+            else {
+              try {
+                await player.play();
+              } catch (e) {
+                error('Video', e);
+              }
+            }
+          });
+          const releaseVideo = () => {
+            if (!videoUrl) return;
+            if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(videoUrl);
+            videoUrl = undefined;
+            player.removeAttribute('src');
+            player.controls = false;
+            setVideoPlayback(false);
+          };
+          videoFile.addEventListener('change', async () => {
+            const file = videoFile.files && videoFile.files[0];
+            if (!file) return;
+            cameraEpoch.next();
+            const stopping = stopCapture();
+            if (stopping) await stopping;
+            if (camera) camera.stop();
+            camera = undefined;
+            frameReader = undefined;
+            IS_STARTED_VIDEO = false;
+            if (cancelMainLoop) cancelMainLoop();
+            removeCameraSelect();
+            releaseVideo();
+            player.srcObject = null;
+            videoUrl = URL.createObjectURL(file);
+            player.src = videoUrl;
+            // Scanner bundles can point the camera reader at a file-backed player;
+            // comparison bundles retain their QRCanvas canvas/readback path.
+            if (typeof QRCamera === 'function') frameReader = new QRCamera(player, cameraOpts());
+            player.controls = false;
+            player.muted = true;
+            player.style.display = 'block';
+            viewfinder.classList.add('live');
+            setVideoPlayback(false);
+            document.querySelector('#startBtn').innerText = 'Start camera';
+            resetFrameStats();
+            player.load();
+            try {
+              await player.play();
+            } catch (e) {
+              error('Video', e);
+            }
+          });
+          document.querySelector('#startBtn').addEventListener('click', async (e) => {
+            const btn = e.target;
+            if (!IS_STARTED_VIDEO) {
+              const run = cameraEpoch.next();
+              try {
+                if (cancelMainLoop) cancelMainLoop();
+                frameReader = undefined;
+                const hadVideo = !!videoUrl;
+                releaseVideo();
+                if (hadVideo) player.load();
+                resetFrameStats();
+                player.style.display = 'block';
+                viewfinder.classList.add('live');
+                btn.innerText = 'Stop';
+                IS_STARTED_VIDEO = true;
+                await queueCamera(async () => {
+                  if (!cameraEpoch.owns(run) || !IS_STARTED_VIDEO) return;
+                  const next = await openCamera(player, cameraOpts());
+                  if (!cameraEpoch.owns(run) || !IS_STARTED_VIDEO) {
+                    discardCamera(next);
+                    return;
+                  }
+                  camera = next;
+                  frameReader = next;
+                  await applyTrackConstraints();
+                  if (!cameraEpoch.owns(run) || !IS_STARTED_VIDEO) return;
+                  startCapture();
+                  const devices = await next.listDevices();
+                  if (!cameraEpoch.owns(run) || !IS_STARTED_VIDEO) return;
+                  addCameraSelect(devices, run);
+                });
+              } catch (e) {
+                if (cameraEpoch.owns(run)) error('Media loop', e);
+              }
+            } else {
+              cameraEpoch.next();
+              updateFrameStats();
+              const stopping = stopCapture();
+              if (stopping) await stopping;
+              if (camera) camera.stop();
+              if (cancelMainLoop) cancelMainLoop();
+              if (canvasQr) canvasQr.clear();
+              camera = undefined;
+              frameReader = undefined;
+              player.srcObject = null;
+              player.style.display = 'none';
+              viewfinder.classList.remove('live');
+              btn.innerText = 'Start camera';
+              removeCameraSelect();
+              IS_STARTED_VIDEO = false;
+            }
+          });
+          // Decode image
+          async function imageFromUrl(url) {
+            const image = new Image();
+            return new Promise((resolve) => {
+              image.src = url;
+              image.addEventListener('load', () => resolve(image));
+            });
+          }
+          async function readFileInput(element) {
+            return new Promise((resolve, reject) => {
+              const file = FileReader && element.files && element.files[0];
+              if (!file) return reject();
+              const reader = new FileReader();
+              reader.addEventListener('load', () => {
+                let res = reader.result;
+                if (!res) return reject(new Error('No file'));
+                resolve(URL.createObjectURL(new Blob([new Uint8Array(res)])));
+              });
+              reader.addEventListener('error', reject);
+              reader.readAsArrayBuffer(file);
+            });
+          }
+          const qrImageFile = document.querySelector('#qr-decode-image');
+          const qrImageResult = document.querySelector('#qr-decode-image-result');
+          const qrImageClear = document.querySelector('#qr-decode-image-clear');
+          const qrImageDebug = document.querySelector('#qr-decode-debug');
+          // A later selection or Clear owns the output; older async loads become inert.
+          const uploadEpoch = epoch();
+          function appendWithLabel(labelText, element) {
+            const label = document.createElement('p');
+            label.textContent = labelText;
+            qrImageResult.appendChild(label);
+            if (element) {
+              element.style = '';
+              qrImageResult.appendChild(element);
+            }
+          }
+          const clearQrImageResult = () => qrImageResult.replaceChildren();
+          qrImageClear.addEventListener('click', () => {
+            uploadEpoch.next();
+            clearQrImageResult();
+          });
+          qrImageFile.addEventListener('change', async (ev) => {
+            const run = uploadEpoch.next();
+            clearQrImageResult();
+            const data = await readFileInput(ev.target);
+            if (!uploadEpoch.owns(run)) return;
+            const img = await imageFromUrl(data);
+            if (!uploadEpoch.owns(run)) return;
+            const width = img.naturalWidth;
+            const height = img.naturalHeight;
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = width;
+            srcCanvas.height = height;
+            const srcCtx = srcCanvas.getContext('2d');
+            srcCtx.drawImage(img, 0, 0);
+            const imageData = srcCtx.getImageData(0, 0, width, height);
+            // Comparison bundles that support an effort tier get their still-image setting below.
+            let lastPoints;
+            let lastFailed = false;
+            let resultImage;
+            let firstBitmap;
+            let decoded;
+            const debug = qrImageDebug.checked;
+            const decodeOpts = {
+              cropToSquare: false,
+              pointsOnDetect: (points, result) => {
+                // Older comparison bundles do not pass a result; their last-attempt
+                // geometry remains usable, while scanner backends mark terminal failure.
+                if (!(result instanceof Error) || isDrawFailed.checked) {
+                  lastPoints = points;
+                  lastFailed = result instanceof Error;
+                }
+              },
+              imageOnResult: (image) => (resultImage = image),
+              // Scanner backends fire per binarized plane; retain only the first. This
+              // is requested only in debug mode because every call copies an RGBA plane.
+              imageOnBitmap: debug ? (image) => (firstBitmap = firstBitmap || image) : undefined,
+            };
+            if (isMaxEffort.checked) {
+              decodeOpts.effort = Infinity;
+              decodeOpts.timeLimit = Infinity;
+            }
+            const t0 = performance.now();
+            try {
+              decoded = decodeQR(imageData, decodeOpts);
+            } catch (e) {}
+            const elapsed = fmtMs(performance.now() - t0);
+            const imageToCanvas = (image) => {
+              const c = document.createElement('canvas');
+              c.width = image.width;
+              c.height = image.height;
+              c.getContext('2d').putImageData(
+                new ImageData(Uint8ClampedArray.from(image.data), image.width, image.height),
+                0,
+                0
+              );
+              return c;
+            };
+            if (debug) {
+              if (firstBitmap)
+                appendWithLabel('Binarized (what the decoder sees)', imageToCanvas(firstBitmap));
+              // Source image with the last detection attempt's finder points
+              if (lastPoints) {
+                const ctx = srcCtx;
+                // Comparison bundles predate the named callback object; keep their
+                // uploaded-image debug view usable without changing the scanner API.
+                const legacyPoints = Array.isArray(lastPoints);
+                const tl = legacyPoints ? lastPoints[0] : lastPoints.tl;
+                const tr = legacyPoints ? lastPoints[1] : lastPoints.tr;
+                const bl = legacyPoints ? lastPoints[3] : lastPoints.bl;
+                const moduleSize = (tl.moduleSize + tr.moduleSize + bl.moduleSize) / 3;
+                const traceQuad = (points) => {
+                  ctx.beginPath();
+                  ctx.moveTo(points[0].x, points[0].y);
+                  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+                  ctx.closePath();
+                };
+                const fillQuad = (points) => {
+                  traceQuad(points);
+                  ctx.fill();
+                };
+                ctx.fillStyle = lastFailed ? 'red' : 'green';
+                const br = legacyPoints
+                  ? { x: tr.x + bl.x - tl.x, y: tr.y + bl.y - tl.y }
+                  : lastPoints.br;
+                fillQuad([tl, tr, br, bl]);
+                if (!legacyPoints) {
+                  const toward = (from, to, distance) => {
+                    const dx = to.x - from.x;
+                    const dy = to.y - from.y;
+                    const scale = Math.min(0.5, distance / Math.hypot(dx, dy));
+                    return { x: from.x + scale * dx, y: from.y + scale * dy };
+                  };
+                  const points = lastPoints.outline;
+                  const starts = points.map((point, i) => toward(point, points[(i + 1) % 4], 9));
+                  const ends = points.map((point, i) => toward(point, points[(i + 3) % 4], 9));
+                  ctx.strokeStyle = 'yellow';
+                  ctx.lineWidth = moduleSize / 2;
+                  ctx.beginPath();
+                  ctx.moveTo(starts[0].x, starts[0].y);
+                  for (let i = 1; i <= points.length; i++) {
+                    const pos = i % 4;
+                    ctx.lineTo(ends[pos].x, ends[pos].y);
+                    ctx.quadraticCurveTo(
+                      points[pos].x,
+                      points[pos].y,
+                      starts[pos].x,
+                      starts[pos].y
+                    );
+                  }
+                  ctx.closePath();
+                  ctx.stroke();
+                }
+                ctx.fillStyle = 'blue';
+                if (legacyPoints)
+                  for (const p of [tl, tr, bl]) {
+                    const s = 7 * p.moduleSize;
+                    ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+                  }
+                else for (const p of [tl, tr, bl]) fillQuad(p.corners);
+                if (!legacyPoints) {
+                  ctx.fillStyle = 'yellow';
+                  for (const p of lastPoints.aligners) fillQuad(p.corners);
+                }
+              }
+              appendWithLabel(lastPoints ? 'Detected points' : 'No detection', srcCanvas);
+              if (resultImage) {
+                const resCanvas = imageToCanvas(resultImage);
+                resCanvas.className = 'pixelated';
+                appendWithLabel('Sampled QR', resCanvas);
+              }
+            }
+            if (decoded !== undefined) {
+              appendWithLabel(`Decoded in ${elapsed}`);
+              appendWithLabel(decoded);
+            } else appendWithLabel(`QR not found! (${elapsed})`);
+          });
+
+          // Encoding: the library's classic GIF plus three parametric SVG
+          // styles rebuilt from scratch after qrbtf.com looks — I (dots), II
+          // (lines), III (halftone) — driven by the raw module matrix.
+          const encSvg = document.querySelector('#encResultSvg');
+          const stylePicker = document.querySelector('#style-picker');
+          const eccSelect = document.querySelector('#ecc-select');
+          const halftoneField = document.querySelector('#halftone-field');
+          const halftoneFile = document.querySelector('#halftone-image');
+          const scanCheck = document.querySelector('#scan-check');
+          const downloadSvgBtn = document.querySelector('#download-svg');
+          const downloadPngBtn = document.querySelector('#download-png');
+          const QR_DARK = '#1a1d24';
+          const QR_ACCENT = '#2e6be6';
+          let qrStyle = 'I';
+          let eccTouched = false;
+          let artwork; // halftone source image chosen by the user
+          let currentSvg = ''; // markup of the visible styled QR ('' for classic)
+
+          const qrGifDataUrl = (text) => {
+            const gifBytes = encodeQR(text, 'gif', { scale: 7, ecc: eccSelect.value });
+            const blob = new Blob([gifBytes], { type: 'image/gif' });
+            return URL.createObjectURL(blob);
+          };
+          // Modules without the quiet zone; the SVG builders re-add their own
+          // margin. Harness stubs return bytes here, so styled rendering
+          // quietly turns itself off for them.
+          const qrModules = (text) => {
+            const withQuiet = encodeQR(text, 'raw', { ecc: eccSelect.value, border: 1 });
+            if (!Array.isArray(withQuiet)) return;
+            return withQuiet.slice(1, -1).map((row) => row.slice(1, -1));
+          };
+          const finderOrigins = (n) => [
+            [0, 0],
+            [n - 7, 0],
+            [0, n - 7],
+          ];
+          const inFinder = (n, x, y) =>
+            finderOrigins(n).some(([fx, fy]) => x >= fx && x < fx + 7 && y >= fy && y < fy + 7);
+          // Explicit width/height: Firefox cannot drawImage an SVG that only
+          // has a viewBox; on the page CSS resizes it anyway.
+          const svgOpen = (units) =>
+            `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640"` +
+            ` viewBox="0 0 ${units} ${units}">` +
+            `<rect width="${units}" height="${units}" fill="#fff"/>`;
+          // Style I: scaled-down dots for data, a rounded ring + core per finder.
+          const renderDots = (m) => {
+            const n = m.length;
+            const parts = [svgOpen(n + 4)];
+            for (let y = 0; y < n; y++)
+              for (let x = 0; x < n; x++)
+                if (m[y][x] && !inFinder(n, x, y))
+                  parts.push(`<circle cx="${x + 2.5}" cy="${y + 2.5}" r="0.4" fill="${QR_DARK}"/>`);
+            for (const [fx, fy] of finderOrigins(n))
+              parts.push(
+                `<rect x="${fx + 2.5}" y="${fy + 2.5}" width="6" height="6" rx="2.2"` +
+                  ` fill="none" stroke="${QR_ACCENT}" stroke-width="1"/>`,
+                `<circle cx="${fx + 5.5}" cy="${fy + 5.5}" r="1.5" fill="${QR_ACCENT}"/>`
+              );
+            parts.push('</svg>');
+            return parts.join('');
+          };
+          // Style II: vertical runs merge into round-capped strokes; finders become
+          // planets — a core, a dashed orbit, satellites on the cardinal
+          // points. The satellites keep the finder's 1:1:3:1:1 scan ratio
+          // intact along both axes through the center.
+          const renderLines = (m) => {
+            const n = m.length;
+            const parts = [svgOpen(n + 4)];
+            for (let x = 0; x < n; x++)
+              for (let y = 0; y < n; y++) {
+                if (!m[y][x] || inFinder(n, x, y)) continue;
+                let end = y;
+                while (end + 1 < n && m[end + 1][x] && !inFinder(n, x, end + 1)) end++;
+                if (end > y)
+                  parts.push(
+                    `<line x1="${x + 2.5}" y1="${y + 2.5}" x2="${x + 2.5}" y2="${end + 2.5}"` +
+                      ` stroke="${QR_DARK}" stroke-width="0.6" stroke-linecap="round"/>`
+                  );
+                else
+                  parts.push(`<circle cx="${x + 2.5}" cy="${y + 2.5}" r="0.3" fill="${QR_DARK}"/>`);
+                y = end;
+              }
+            for (const [fx, fy] of finderOrigins(n)) {
+              const cx = fx + 5.5;
+              const cy = fy + 5.5;
+              // 1.57 + 0.785 divides the r=3 circumference exactly 8 times, so
+              // the dashed orbit closes without a seam.
+              parts.push(
+                `<circle cx="${cx}" cy="${cy}" r="1.5" fill="${QR_ACCENT}"/>`,
+                `<circle cx="${cx}" cy="${cy}" r="3" fill="none" stroke="${QR_ACCENT}"` +
+                  ` stroke-width="0.5" stroke-dasharray="1.57 0.785"/>`
+              );
+              for (const [sx, sy] of [
+                [3, 0],
+                [-3, 0],
+                [0, 3],
+                [0, -3],
+              ])
+                parts.push(
+                  `<circle cx="${cx + sx}" cy="${cy + sy}" r="0.55" fill="${QR_ACCENT}"/>`
+                );
+            }
+            parts.push('</svg>');
+            return parts.join('');
+          };
+          // Style III: every module splits into a 3x3 halftone block. The center cell
+          // always keeps the module's value and function patterns stay solid,
+          // so arbitrary artwork can fill the rest without hurting decoding.
+          const BAYER = [
+            [0, 8, 2, 10],
+            [12, 4, 14, 6],
+            [3, 11, 1, 9],
+            [15, 7, 13, 5],
+          ];
+          const alignmentCenters = (n) => {
+            const ver = (n - 17) / 4;
+            if (ver < 2) return [];
+            const count = Math.floor(ver / 7) + 2;
+            const step = ver === 32 ? 26 : Math.ceil((4 * ver + 4) / (count - 1) / 2) * 2;
+            const coords = [6];
+            for (let p = n - 7; coords.length < count; p -= step) coords.splice(1, 0, p);
+            const centers = [];
+            for (const cy of coords)
+              for (const cx of coords) if (!inFinder(n, cx, cy)) centers.push([cx, cy]);
+            return centers;
+          };
+          // Grayscale sampler for the halftone artwork: the chosen image
+          // cover-cropped onto the subcell grid, or a soft analytic vignette
+          // when no image is picked (or canvas readback is unavailable).
+          const halftoneGray = (N) => {
+            if (artwork) {
+              const c = document.createElement('canvas');
+              const ctx = c.getContext && c.getContext('2d');
+              if (ctx) {
+                c.width = c.height = N;
+                const s = Math.min(artwork.naturalWidth, artwork.naturalHeight);
+                ctx.drawImage(
+                  artwork,
+                  (artwork.naturalWidth - s) / 2,
+                  (artwork.naturalHeight - s) / 2,
+                  s,
+                  s,
+                  0,
+                  0,
+                  N,
+                  N
+                );
+                const d = ctx.getImageData(0, 0, N, N).data;
+                return (gx, gy) => {
+                  const i = (gy * N + gx) * 4;
+                  return 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                };
+              }
+            }
+            return (gx, gy) => {
+              const dx = gx / N - 0.38;
+              const dy = gy / N - 0.36;
+              return 285 * Math.min(1, Math.hypot(dx, dy) * 2 + 0.24);
+            };
+          };
+          const renderHalftone = (m) => {
+            const n = m.length;
+            const N = 3 * n;
+            const gray = halftoneGray(N);
+            const centers = alignmentCenters(n);
+            const solid = (x, y) => {
+              if (x === 6 || y === 6 || inFinder(n, x, y)) return true;
+              return centers.some(([cx, cy]) => Math.abs(x - cx) <= 2 && Math.abs(y - cy) <= 2);
+            };
+            const darkAt = (gx, gy) => {
+              const x = (gx / 3) | 0;
+              const y = (gy / 3) | 0;
+              if (solid(x, y) || (gx % 3 === 1 && gy % 3 === 1)) return m[y][x];
+              return gray(gx, gy) < ((BAYER[gy % 4][gx % 4] + 0.5) / 16) * 255;
+            };
+            const parts = [svgOpen(N + 12)];
+            // Runs of dark subcells merge into single, slightly overlapping
+            // rects, so the raster shows no hairline seams between them.
+            for (let gy = 0; gy < N; gy++)
+              for (let gx = 0; gx < N; gx++) {
+                if (!darkAt(gx, gy)) continue;
+                let end = gx;
+                while (end + 1 < N && darkAt(end + 1, gy)) end++;
+                parts.push(
+                  `<rect x="${gx + 5.98}" y="${gy + 5.98}" width="${end - gx + 1.04}"` +
+                    ` height="1.04" fill="${QR_DARK}"/>`
+                );
+                gx = end;
+              }
+            parts.push('</svg>');
+            return parts.join('');
+          };
+          const buildStyledSvg = (text) => {
+            const m = qrModules(text);
+            if (!m) return;
+            if (qrStyle === 'I') return renderDots(m);
+            if (qrStyle === 'II') return renderLines(m);
+            return renderHalftone(m);
+          };
+          // Scan check: rasterize whatever is displayed and feed it back to
+          // decodeQR, so every style proves itself against the real decoder.
+          const verifyEpoch = epoch();
+          const setScanCheck = (state, text) => {
+            scanCheck.hidden = false;
+            scanCheck.className = 'scan-check ' + state;
+            scanCheck.textContent = text;
+          };
+          const rasterSource = () =>
+            currentSvg
+              ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(currentSvg)
+              : imgEncodeQr.src;
+          const verifyScan = async (text) => {
+            const run = verifyEpoch.next();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext && canvas.getContext('2d');
+            if (!ctx) {
+              scanCheck.hidden = true;
+              return;
+            }
+            setScanCheck('pending', 'Checking scannability…');
+            try {
+              const SIZE = 640;
+              canvas.width = canvas.height = SIZE;
+              const image = await imageFromUrl(rasterSource());
+              if (!verifyEpoch.owns(run)) return;
+              ctx.fillStyle = '#fff';
+              ctx.fillRect(0, 0, SIZE, SIZE);
+              ctx.drawImage(image, 0, 0, SIZE, SIZE);
+              let decoded;
+              try {
+                decoded = decodeQR(ctx.getImageData(0, 0, SIZE, SIZE));
+              } catch (e) {}
+              if (!verifyEpoch.owns(run)) return;
+              if (decoded === text) setScanCheck('ok', '✓ Decodes with the built-in scanner');
+              else if (decoded !== undefined) setScanCheck('err', '✗ Decoded to different text');
+              else setScanCheck('err', '✗ Does not decode — raise error correction');
+            } catch (e) {
+              if (verifyEpoch.owns(run)) setScanCheck('err', '✗ Scan check failed');
+            }
+          };
+          const renderQr = () => {
+            const text = inputEncode.value;
+            if (qrStyle === 'classic') {
+              currentSvg = '';
+              encSvg.hidden = true;
+              imgEncodeQr.hidden = false;
+              imgEncodeQr.src = qrGifDataUrl(text);
+            } else {
+              const svg = buildStyledSvg(text);
+              if (svg === undefined) return;
+              currentSvg = svg;
+              encSvg.innerHTML = svg;
+              encSvg.hidden = false;
+              imgEncodeQr.hidden = true;
+            }
+            verifyScan(text);
+          };
+          const renderQrSafe = () => {
+            try {
+              renderQr();
+            } catch (e) {
+              verifyEpoch.next();
+              setScanCheck('err', '✗ ' + e.message);
+            }
+          };
+          for (const btn of stylePicker.querySelectorAll('.style-btn'))
+            btn.addEventListener('click', () => {
+              qrStyle = btn.dataset.style;
+              for (const other of stylePicker.querySelectorAll('.style-btn'))
+                other.classList.toggle('active', other === btn);
+              halftoneField.hidden = qrStyle !== 'III';
+              // Halftone gives real estate away to the artwork; follow qrbtf
+              // and raise ECC until the user picks a level themselves.
+              if (!eccTouched) eccSelect.value = qrStyle === 'III' ? 'high' : 'medium';
+              renderQrSafe();
+            });
+          eccSelect.addEventListener('change', () => {
+            eccTouched = true;
+            renderQrSafe();
+          });
+          halftoneFile.addEventListener('change', async () => {
+            try {
+              artwork = await imageFromUrl(await readFileInput(halftoneFile));
+            } catch (e) {
+              return;
+            }
+            renderQrSafe();
+          });
+          inputEncode.addEventListener('input', renderQrSafe);
+          const download = (href, name) => {
+            const a = document.createElement('a');
+            a.href = href;
+            a.download = name;
+            a.click();
+          };
+          downloadSvgBtn.addEventListener('click', () => {
+            // Classic exports the library's own merged-path SVG renderer.
+            const data = currentSvg || encodeQR(inputEncode.value, 'svg', { ecc: eccSelect.value });
+            download(URL.createObjectURL(new Blob([data], { type: 'image/svg+xml' })), 'qr.svg');
+          });
+          downloadPngBtn.addEventListener('click', async () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext && canvas.getContext('2d');
+            if (!ctx) return;
+            canvas.width = canvas.height = 1024;
+            const image = await imageFromUrl(rasterSource());
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, 1024, 1024);
+            // The classic GIF should scale with crisp module edges; the SVG
+            // styles want smoothing for their curves.
+            ctx.imageSmoothingEnabled = !!currentSvg;
+            ctx.drawImage(image, 0, 0, 1024, 1024);
+            download(canvas.toDataURL('image/png'), 'qr.png');
+          });
+
+          renderQrSafe();
+        }
+
+        window.addEventListener('load', main);
+      </script>
+      <style>
+        /* Design tokens. color-scheme flips native form controls/scrollbars, the
+   media query re-points the palette for our own surfaces. */
+        :root {
+          color-scheme: light dark;
+          --bg: #f4f5f8;
+          --surface: #ffffff;
+          --surface-2: #eaecf1;
+          --border: #d8dbe2;
+          --text: #191c22;
+          --muted: #667085;
+          --accent: #2e6be6;
+          --accent-contrast: #ffffff;
+          --ok: #188a4a;
+          --err: #cf3f3f;
+          --warn: #986700;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #0f1115;
+            --surface: #171a21;
+            --surface-2: #20242e;
+            --border: #2b303c;
+            --text: #e4e7ee;
+            --muted: #98a1b3;
+            --accent: #7ea6ff;
+            --accent-contrast: #0c1117;
+            --ok: #61c861;
+            --err: #eb6e6e;
+            --warn: #d9a441;
+          }
+        }
+
+        body {
+          margin: 0;
+          background: var(--bg);
+          color: var(--text);
+          font-family:
+            system-ui,
+            -apple-system,
+            'Segoe UI',
+            Roboto,
+            sans-serif;
+          line-height: 1.5;
+          -webkit-text-size-adjust: 100%;
+        }
+
+        #app {
+          max-width: 920px;
+          margin: 0 auto;
+          padding: 22px 16px 40px;
+        }
+
+        a {
+          color: var(--accent);
+        }
+
+        .site-header h1 {
+          margin: 0;
+          font-size: 24px;
+          letter-spacing: -0.01em;
+        }
+
+        .tagline {
+          margin: 4px 0 0;
+          color: var(--muted);
+          font-size: 14px;
+        }
+
+        /* The diagnostics UI exists in every page load (so scripted flows keep
+   working) but only ?debug=1 reveals it. */
+        body:not(.debug) .debug-only {
+          display: none !important;
+        }
+
+        body.debug .normal-only {
+          display: none !important;
+        }
+
+        .tabs {
+          display: flex;
+          gap: 4px;
+          margin: 18px 0;
+          padding: 4px;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: 13px;
+        }
+
+        .tab {
+          flex: 1;
+          min-height: 40px;
+          border: 0;
+          border-radius: 9px;
+          background: transparent;
+          color: var(--muted);
+          font: inherit;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .tab.active {
+          background: var(--surface);
+          color: var(--text);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+
+        .panel {
+          display: none;
+        }
+
+        .panel.active {
+          display: block;
+        }
+
+        .panel-desc {
+          margin: 0 0 14px;
+          color: var(--muted);
+          font-size: 14px;
+        }
+
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          box-sizing: border-box;
+          min-height: 42px;
+          padding: 9px 18px;
+          border: 1px solid var(--border);
+          border-radius: 11px;
+          background: var(--surface);
+          color: var(--text);
+          font: inherit;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .btn:hover {
+          background: var(--surface-2);
+        }
+
+        .btn.primary {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: var(--accent-contrast);
+        }
+
+        .btn.primary:hover {
+          background: var(--accent);
+          filter: brightness(1.07);
+        }
+
+        .btn:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+
+        /* Labels styled as .btn act as the visible controls for these. */
+        input[type='file'] {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        input[type='checkbox'] {
+          accent-color: var(--accent);
+          width: 16px;
+          height: 16px;
+          margin: 0;
+        }
+
+        select {
+          font: inherit;
+          font-size: 14px;
+          padding: 7px 10px;
+          border: 1px solid var(--border);
+          border-radius: 9px;
+          background: var(--surface);
+          color: var(--text);
+        }
+
+        .btn:focus-visible,
+        .tab:focus-visible,
+        select:focus-visible,
+        input[type='checkbox']:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
+        .action-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+
+        .input-label {
+          display: block;
+          margin-bottom: 6px;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .text-input {
+          box-sizing: border-box;
+          width: 100%;
+          max-width: 100%;
+          padding: 12px 14px;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: var(--surface);
+          color: var(--text);
+          font: inherit;
+          font-size: 16px;
+        }
+
+        .text-input:focus {
+          outline: 2px solid var(--accent);
+          outline-offset: 1px;
+        }
+
+        .input-field {
+          margin-bottom: 20px;
+        }
+
+        .encode {
+          display: flex;
+          justify-content: center;
+        }
+
+        /* .controls-field et al set their own display; hidden must still win. */
+        [hidden] {
+          display: none !important;
+        }
+
+        .gen-options {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 10px 18px;
+          margin-bottom: 20px;
+        }
+
+        .style-picker {
+          display: flex;
+          gap: 4px;
+          padding: 4px;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-radius: 11px;
+        }
+
+        .style-btn {
+          min-height: 34px;
+          padding: 5px 14px;
+          border: 0;
+          border-radius: 8px;
+          background: transparent;
+          color: var(--muted);
+          font: inherit;
+          font-size: 13.5px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+
+        .style-btn.active {
+          background: var(--surface);
+          color: var(--text);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+
+        .style-btn:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+        }
+
+        .qr-card {
+          box-sizing: border-box;
+          width: min(340px, 100%);
+          padding: 14px;
+          /* Stays white in dark mode: the quiet zone must contrast the modules. */
+          background: #fff;
+          border: 1px solid var(--border);
+          border-radius: 14px;
+        }
+
+        .qr-card svg,
+        #encResultQr {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+
+        #encResultQr {
+          image-rendering: pixelated;
+        }
+
+        .gen-actions {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 16px;
+        }
+
+        .scan-check {
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: var(--surface-2);
+          color: var(--muted);
+          font-size: 13.5px;
+          font-weight: 600;
+        }
+
+        .scan-check.ok {
+          color: var(--ok);
+        }
+
+        .scan-check.err {
+          color: var(--err);
+        }
+
+        #frame-format-dialog {
+          box-sizing: border-box;
+          width: min(920px, calc(100vw - 32px));
+          padding: 18px 20px;
+          background: var(--surface);
+          color: var(--text);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+        }
+
+        #frame-format-dialog::backdrop {
+          background: rgba(0, 0, 0, 0.55);
+        }
+
+        .fft-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .fft-head h2 {
+          margin: 0;
+          font-size: 18px;
+        }
+
+        #fft-summary {
+          font-weight: 600;
+        }
+
+        #fft-agent {
+          overflow-wrap: anywhere;
+          color: var(--muted);
+          font-size: 13px;
+        }
+
+        .fft-scroll {
+          overflow-x: auto;
+        }
+
+        #fft-table {
+          border-collapse: collapse;
+          width: 100%;
+          font-size: 0.85em;
+        }
+
+        #fft-table th,
+        #fft-table td {
+          border: 1px solid var(--border);
+          padding: 4px 7px;
+          text-align: left;
+          white-space: nowrap;
+        }
+
+        #frame-format-dialog .pass {
+          color: var(--ok);
+        }
+
+        #frame-format-dialog .fallback,
+        #frame-format-dialog .unsupported {
+          color: var(--warn);
+        }
+
+        #frame-format-dialog .fail {
+          color: var(--err);
+        }
+
+        #qr-decode-image-result canvas {
+          width: 100%;
+          border-radius: 10px;
+        }
+
+        #qr-decode-image-result canvas.pixelated {
+          width: auto;
+          max-width: 100%;
+          min-width: 200px;
+          image-rendering: pixelated;
+        }
+
+        #qr-decode-image-result {
+          position: relative;
+          max-width: 500px;
+        }
+
+        #results-container {
+          width: 100%;
+        }
+
+        /* Diagnostics keep the old breakout: the video shows at its full resolution
+   width (1920px for 1080p), limited by the screen. The left/transform pair
+   lets it escape the page column, staying centered. */
+        /* .results centers its flex items on the cross axis, so the oversized
+   container overflows the page column evenly on both sides. */
+        body.debug #results-container {
+          width: min(1920px, calc(100vw - 16px));
+        }
+
+        .viewfinder {
+          position: relative;
+          width: 100%;
+          overflow: hidden;
+          background: #101319;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+        }
+
+        /* Idle: a fixed-shape placeholder. Live: the video's own height rules. */
+        .viewfinder:not(.live) {
+          aspect-ratio: 16 / 9;
+          max-height: 440px;
+        }
+
+        .viewfinder.live {
+          min-height: 160px;
+        }
+
+        .video-stack {
+          position: relative;
+          width: 100%;
+        }
+
+        /* Scanner corner marks: one L per corner, two gradient strokes each. */
+        .vf-frame {
+          position: absolute;
+          inset: 9%;
+          z-index: 1200;
+          pointer-events: none;
+          color: rgba(255, 255, 255, 0.25);
+          --t: 3px;
+          --l: 30px;
+          background:
+            linear-gradient(currentColor, currentColor) left top / var(--l) var(--t) no-repeat,
+            linear-gradient(currentColor, currentColor) left top / var(--t) var(--l) no-repeat,
+            linear-gradient(currentColor, currentColor) right top / var(--l) var(--t) no-repeat,
+            linear-gradient(currentColor, currentColor) right top / var(--t) var(--l) no-repeat,
+            linear-gradient(currentColor, currentColor) left bottom / var(--l) var(--t) no-repeat,
+            linear-gradient(currentColor, currentColor) left bottom / var(--t) var(--l) no-repeat,
+            linear-gradient(currentColor, currentColor) right bottom / var(--l) var(--t) no-repeat,
+            linear-gradient(currentColor, currentColor) right bottom / var(--t) var(--l) no-repeat;
+        }
+
+        .viewfinder.live .vf-frame {
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Idle: centered hint + Start button. Live: a floating control bar pinned
+   to the bottom of the preview. */
+        .camera-start-container {
+          position: absolute;
+          inset: 0;
+          z-index: 1500;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          padding: 16px;
+          text-align: center;
+          color: #aeb6c6;
+        }
+
+        .viewfinder.live .camera-start-container {
+          inset: auto 12px 12px;
+          width: fit-content;
+          max-width: calc(100% - 24px);
+          box-sizing: border-box;
+          margin: 0 auto;
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 12px;
+          background: rgba(10, 13, 19, 0.55);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+
+        .viewfinder.live .start-btn {
+          min-height: 36px;
+          padding: 6px 14px;
+        }
+
+        .vf-hint {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+        }
+
+        .vf-hint svg {
+          width: 46px;
+          height: 46px;
+          opacity: 0.7;
+        }
+
+        .viewfinder.live .vf-hint {
+          display: none;
+        }
+
+        .fps,
+        #frame-source {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 11.5px;
+          padding: 4px 9px;
+          border-radius: 999px;
+          background: rgba(0, 0, 0, 0.35);
+          color: #ccd3e0;
+        }
+
+        #camera-select {
+          max-width: 220px;
+        }
+
+        #qr-video,
+        #bitmap,
+        #overlay {
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        #qr-video {
+          position: relative;
+          z-index: 1;
+          display: none;
+        }
+
+        #bitmap {
+          position: absolute;
+          z-index: 500;
+          display: none;
+          image-rendering: pixelated;
+          /* The plane may be a centered square crop of a 16:9 frame — letterbox it
+     instead of stretching, so it stays aligned with the preview underneath. */
+          object-fit: contain;
+        }
+
+        #overlay {
+          position: absolute;
+          z-index: 1000;
+          opacity: 0.7;
+        }
+
+        /* The preview is display-only: external controls avoid iOS opening its player,
+   while touch gestures reach the page for scrolling. */
+        #qr-video,
+        #bitmap,
+        #overlay {
+          pointer-events: none;
+        }
+
+        #frame-stats {
+          border-collapse: collapse;
+          font-variant-numeric: tabular-nums;
+          font-size: 0.85em;
+          margin: 8px 0 4px;
+          width: 100%;
+        }
+
+        #frame-statistics {
+          box-sizing: border-box;
+          margin-top: 10px;
+          width: 100%;
+          padding: 8px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+        }
+
+        #frame-statistics > summary {
+          cursor: pointer;
+          font-weight: 600;
+        }
+
+        .frame-stats-scroll {
+          overflow-x: auto;
+        }
+
+        #frame-stats caption {
+          font-weight: 600;
+          text-align: left;
+          margin-bottom: 4px;
+          color: var(--muted);
+        }
+
+        #frame-stats th,
+        #frame-stats td {
+          border: 1px solid var(--border);
+          padding: 3px 6px;
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        #frame-stats th:first-child {
+          text-align: left;
+        }
+
+        #frame-counters {
+          margin-bottom: 8px;
+          font-size: 13px;
+          color: var(--muted);
+        }
+
+        #capture-result {
+          margin-bottom: 8px;
+        }
+
+        #log {
+          max-height: 300px;
+          overflow-y: auto;
+          margin-bottom: 30px;
+          padding: 4px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 12.5px;
+        }
+
+        #log-stats {
+          display: none;
+          font-weight: 600;
+          padding: 2px 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .log-entry {
+          padding: 4px 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .log-entry:last-child {
+          border-bottom: 0;
+        }
+
+        #resultTxtLabel {
+          display: none;
+        }
+
+        .controls {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 10px 18px;
+          margin-bottom: 14px;
+          padding: 14px 16px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+        }
+
+        .controls-field {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+        }
+
+        /* Stacked: the full-width video on top, decoded result below. */
+        .results {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          margin-top: 4px;
+          margin-bottom: 20px;
+        }
+
+        .results-col {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          position: relative;
+        }
+
+        .results-col:first-child {
+          margin-bottom: 20px;
+        }
+
+        /* The decoded card appears once something has actually been decoded. */
+        #result {
+          display: none;
+        }
+
+        #result.has-result {
+          display: flex;
+        }
+
+        .results-qr {
+          max-width: 500px;
+          text-align: center;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+        }
+
+        #resultQr {
+          /* QRCanvas writes version-dependent inline dimensions; keep every result in
+     one square footprint so large payloads cannot resize the page. */
+          aspect-ratio: 1 / 1;
+          display: block;
+          height: auto !important;
+          width: 100% !important;
+          border-radius: 8px;
+        }
+
+        .decoded-text {
+          margin-top: 10px;
+          max-width: 100%;
+          width: 100%;
+          text-align: left;
+        }
+
+        #resultTxt {
+          display: block;
+          box-sizing: border-box;
+          height: 12em;
+          margin: 0.5em 0 0;
+          max-width: 100%;
+          overflow: auto;
+          overflow-wrap: anywhere;
+          text-align: left;
+          white-space: pre-wrap;
+          padding: 10px 12px;
+          background: var(--surface-2);
+          border-radius: 10px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 13px;
+        }
+
+        .site-footer {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: 36px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border);
+          font-size: 13px;
+          color: var(--muted);
+        }
+
+        .qr-error {
+          color: var(--err);
+        }
+
+        .qr-ok {
+          color: var(--ok);
+        }
+        canvas {
+          transform: translate3d(0, 0, 0); /* May or may not trigger GPU acceleration */
+        }
+
+        @media (max-width: 480px) {
+          #app {
+            padding: 16px 10px 32px;
+          }
+        }
+      </style>
     </div>
-  </div>
-</div>
-
-<div id="log"></div>
-
-<h3>QR scan (image)</h3>
-<p>Select image with QR code for decoding</p>
-<p>
-  <input type="file" id="qr-decode-image" accept="image/*" />
-  <label for="qr-decode-image">Image <small>(jpg, png...)</small></label>
-</p>
-<span class="controls-field">
-  <input type="checkbox" id="qr-decode-debug" name="qr-decode-debug" />
-  <label for="qr-decode-debug">Debug</label>
-</span>
-<p>
-  <input type="submit" id="qr-decode-image-clear" value="Clear result" />
-</p>
-<div id="qr-decode-image-result"></div>
-
-<hr />
-
-<h3>QR generator</h3>
-<div class="input-field">
-  <label class="input-label" for="input-encode">
-    <strong>Text or URL to encode into QR</strong>
-  </label>
-  <input
-    class="text-input"
-    id="input-encode"
-    type="text"
-    placeholder="Hello world!"
-    value="Hello world!"
-  />
-</div>
-
-<div class="encode">
-  <img id="encResultQr" src="" alt="encoded qr" />
-</div>
-
-<link rel="stylesheet" href="/assets/stylesheets/style.css?v=3">
-<script src="./qr-v0.5.5.min.js"></script>
-<script src="./qr-web-demo.js"></script>
-<link rel="stylesheet" href="qr-web-demo.css" />
-
-</div>
   </body>
 </html>
